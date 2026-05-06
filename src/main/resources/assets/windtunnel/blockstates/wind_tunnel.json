@@ -1,0 +1,50 @@
+{
+  "variants": {
+    "facing=down,powered=false": {
+      "model": "windtunnel:block/wind_tunnel",
+      "x": 270
+    },
+    "facing=down,powered=true": {
+      "model": "windtunnel:block/wind_tunnel",
+      "x": 270
+    },
+    "facing=east,powered=false": {
+      "model": "windtunnel:block/wind_tunnel",
+      "y": 90
+    },
+    "facing=east,powered=true": {
+      "model": "windtunnel:block/wind_tunnel",
+      "y": 90
+    },
+    "facing=north,powered=false": {
+      "model": "windtunnel:block/wind_tunnel"
+    },
+    "facing=north,powered=true": {
+      "model": "windtunnel:block/wind_tunnel"
+    },
+    "facing=south,powered=false": {
+      "model": "windtunnel:block/wind_tunnel",
+      "y": 180
+    },
+    "facing=south,powered=true": {
+      "model": "windtunnel:block/wind_tunnel",
+      "y": 180
+    },
+    "facing=up,powered=false": {
+      "model": "windtunnel:block/wind_tunnel",
+      "x": 90
+    },
+    "facing=up,powered=true": {
+      "model": "windtunnel:block/wind_tunnel",
+      "x": 90
+    },
+    "facing=west,powered=false": {
+      "model": "windtunnel:block/wind_tunnel",
+      "y": 270
+    },
+    "facing=west,powered=true": {
+      "model": "windtunnel:block/wind_tunnel",
+      "y": 270
+    }
+  }
+}

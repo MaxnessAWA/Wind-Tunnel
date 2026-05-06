@@ -1,0 +1,38 @@
+{
+  "textures": {
+    "0": "windtunnel:block/wind_tunnel",
+    "particle": "windtunnel:block/wind_tunnel"
+  },
+  "elements": [
+    {
+      "from": [0, 0, 0],
+      "to": [16, 16, 16],
+      "faces": {
+        "north": {"uv": [8, 0, 16, 8], "texture": "#0"},
+        "east": {"uv": [0, 0, 8, 8], "rotation": 270, "texture": "#0"},
+        "south": {"uv": [8, 0, 16, 8], "texture": "#0"},
+        "west": {"uv": [0, 0, 8, 8], "rotation": 90, "texture": "#0"},
+        "up": {"uv": [8, 8, 0, 0], "texture": "#0"},
+        "down": {"uv": [8, 0, 0, 8], "texture": "#0"}
+      }
+    },
+    {
+      "from": [15, 15, 16],
+      "to": [1, 1, 0],
+      "faces": {
+        "east": {"uv": [0.5, 0, 7.5, 8], "rotation": 90, "texture": "#0"},
+        "west": {"uv": [0.5, 0, 7.5, 8], "rotation": 270, "texture": "#0"},
+        "up": {"uv": [0.5, 0, 7.5, 8], "texture": "#0"},
+        "down": {"uv": [0.5, 0, 7.5, 8], "rotation": 180, "texture": "#0"}
+      }
+    },
+    {
+      "from": [1, 1, 15],
+      "to": [15, 15, 15],
+      "faces": {
+        "north": {"uv": [8.5, 8.5, 15.5, 15.5], "texture": "#0"},
+        "south": {"uv": [8.5, 8.5, 15.5, 15.5], "texture": "#0"}
+      }
+    }
+  ]
+}

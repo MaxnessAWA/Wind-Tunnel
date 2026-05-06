@@ -1,0 +1,7 @@
+{
+  "priority": 2000,
+  "selector": "windtunnel:wind_tunnel_mount_interface",
+  "properties": {
+    "sable:mass": 0.0
+  }
+}

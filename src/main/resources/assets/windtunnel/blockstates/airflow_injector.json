@@ -1,0 +1,30 @@
+{
+  "variants": {
+    "facing=down": {
+      "model": "windtunnel:block/airflow_injector",
+      "x": 180
+    },
+    "facing=east": {
+      "model": "windtunnel:block/airflow_injector",
+      "x": 90,
+      "y": 90
+    },
+    "facing=north": {
+      "model": "windtunnel:block/airflow_injector",
+      "x": 90
+    },
+    "facing=south": {
+      "model": "windtunnel:block/airflow_injector",
+      "x": 90,
+      "y": 180
+    },
+    "facing=up": {
+      "model": "windtunnel:block/airflow_injector"
+    },
+    "facing=west": {
+      "model": "windtunnel:block/airflow_injector",
+      "x": 90,
+      "y": 270
+    }
+  }
+}

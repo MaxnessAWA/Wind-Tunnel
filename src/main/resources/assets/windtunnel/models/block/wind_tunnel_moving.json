@@ -1,0 +1,29 @@
+{
+  "textures": {
+    "0": "windtunnel:block/wind_tunnel",
+    "2": "windtunnel:block/wind_tunnel_blade",
+    "particle": "windtunnel:block/wind_tunnel"
+  },
+  "elements": [
+    {
+      "from": [7, 7, 0],
+      "to": [9, 9, 16],
+      "faces": {
+        "north": {"uv": [7, 15, 8, 16], "texture": "#0"},
+        "east": {"uv": [0, 15, 8, 16], "texture": "#0"},
+        "south": {"uv": [7, 15, 8, 16], "texture": "#0"},
+        "west": {"uv": [0, 15, 8, 16], "texture": "#0"},
+        "up": {"uv": [7, 8, 8, 16], "texture": "#0"},
+        "down": {"uv": [7, 8, 8, 16], "texture": "#0"}
+      }
+    },
+    {
+      "from": [1, 1, 4],
+      "to": [15, 15, 4],
+      "faces": {
+        "north": {"uv": [1, 1, 15, 15], "texture": "#2"},
+        "south": {"uv": [1, 1, 15, 15], "texture": "#2"}
+      }
+    }
+  ]
+}

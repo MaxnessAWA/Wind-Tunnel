@@ -1,0 +1,30 @@
+{
+  "variants": {
+    "facing=down": {
+      "model": "windtunnel:block/wind_tunnel_mount_interface",
+      "x": 180
+    },
+    "facing=east": {
+      "model": "windtunnel:block/wind_tunnel_mount_interface",
+      "x": 90,
+      "y": 90
+    },
+    "facing=north": {
+      "model": "windtunnel:block/wind_tunnel_mount_interface",
+      "x": 90
+    },
+    "facing=south": {
+      "model": "windtunnel:block/wind_tunnel_mount_interface",
+      "x": 90,
+      "y": 180
+    },
+    "facing=up": {
+      "model": "windtunnel:block/wind_tunnel_mount_interface"
+    },
+    "facing=west": {
+      "model": "windtunnel:block/wind_tunnel_mount_interface",
+      "x": 90,
+      "y": 270
+    }
+  }
+}

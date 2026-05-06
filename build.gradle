@@ -1,0 +1,152 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'net.neoforged.moddev' version '2.0.140'
+}
+
+version = mod_version
+group = mod_group_id
+
+base {
+    archivesName = mod_id
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(java_version.toInteger())
+    }
+    withSourcesJar()
+}
+
+repositories {
+    maven { url = 'https://maven.firstdark.dev/snapshots' }
+    maven { url = 'https://maven.createmod.net' }
+    maven { url = 'https://maven.ithundxr.dev/snapshots' }
+    maven { url = 'https://mvn.devos.one/snapshots' }
+    maven { url = 'https://maven.ryanhcode.dev/releases' }
+    maven { url = 'https://maven.neoforged.net/releases' }
+    maven { url = 'https://maven.blamejared.com/' }
+    exclusiveContent {
+        forRepository {
+            maven { url = 'https://repo.spongepowered.org/repository/maven-public' }
+        }
+        filter {
+            includeGroupAndSubgroups 'org.spongepowered'
+        }
+    }
+    mavenCentral()
+}
+
+neoForge {
+    version = neoforge_version
+
+    parchment {
+        minecraftVersion = parchment_minecraft
+        mappingsVersion = parchment_version
+    }
+
+    runs {
+        configureEach {
+            systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
+        }
+
+        client {
+            client()
+            gameDirectory = project.file('runs/client')
+        }
+
+        server {
+            server()
+            gameDirectory = project.file('runs/server')
+            programArgument 'nogui'
+        }
+
+        data {
+            data()
+            gameDirectory = project.file('runs/data')
+            programArguments.addAll '--mod', mod_id, '--all',
+                    '--output', file('src/generated/resources').absolutePath,
+                    '--existing', file('src/main/resources').absolutePath,
+                    '--existing-mod', 'create',
+                    '--existing-mod', 'aeronautics'
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet sourceSets.main
+        }
+    }
+}
+
+sourceSets.main.resources {
+    srcDir 'src/generated/resources'
+}
+
+dependencies {
+    compileOnly("com.simibubi.create:create-1.21.1:${create_version}") { transitive = false }
+    compileOnly("dev.ryanhcode.sable:sable-neoforge-1.21.1:${sable_version}") { transitive = false }
+    compileOnly("dev.ryanhcode.sable-companion:sable-companion-common-1.21.1:${sable_companion_version}") { transitive = false }
+    compileOnly("net.createmod.ponder:ponder-neoforge:${ponder_version}+mc${minecraft_version}") { transitive = false }
+    compileOnly("foundry.veil:veil-neoforge-1.21.1:${veil_version}") { transitive = false }
+    compileOnly("dev.simulated_team.simulated:simulated-neoforge-1.21.1:${simulated_version}") { transitive = false }
+    implementation("com.lowdragmc.ldlib2:ldlib2-neoforge-${minecraft_version}:${ldlib2_version}:all")
+    implementation("org.appliedenergistics.yoga:yoga:${yoga_version}")
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = java_version.toInteger()
+}
+
+def replaceProperties = [
+        minecraft_version              : minecraft_version,
+        minecraft_version_range        : minecraft_version_range,
+        neoforge_version               : neoforge_version,
+        neoforge_loader_version_range  : neoforge_loader_version_range,
+        java_version                   : java_version,
+        create_version_range           : create_version_range,
+        aeronautics_version_range      : aeronautics_version_range,
+        simulated_version_range        : simulated_version_range,
+        ldlib2_version                 : ldlib2_version,
+        sable_mod_version              : sable_mod_version,
+        mod_id                         : mod_id,
+        mod_name                       : mod_name,
+        mod_version                    : mod_version,
+        mod_authors                    : mod_authors,
+        mod_description                : mod_description,
+        mod_license                    : mod_license,
+        pack_format                    : 48
+]
+
+tasks.named('processResources', ProcessResources).configure {
+    inputs.properties replaceProperties
+    filesMatching(['META-INF/neoforge.mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties
+    }
+}
+
+jar {
+    from(rootProject.file('THIRD_PARTY_NOTICES.md')) {
+        into 'META-INF'
+    }
+
+    manifest {
+        attributes(
+                'Specification-Title': mod_name,
+                'Specification-Vendor': mod_authors,
+                'Specification-Version': '1',
+                'Implementation-Title': project.name,
+                'Implementation-Version': project.version,
+                'Implementation-Vendor': mod_authors
+        )
+    }
+}
+
+publishing {
+    publications {
+        create('mavenJava', MavenPublication) {
+            from components.java
+        }
+    }
+}

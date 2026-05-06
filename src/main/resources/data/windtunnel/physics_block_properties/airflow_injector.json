@@ -1,0 +1,7 @@
+{
+  "priority": 2000,
+  "selector": "windtunnel:airflow_injector",
+  "properties": {
+    "sable:mass": 0.0
+  }
+}

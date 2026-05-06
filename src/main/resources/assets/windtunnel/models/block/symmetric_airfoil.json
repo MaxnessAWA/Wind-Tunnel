@@ -1,0 +1,22 @@
+{
+	"format_version": "1.21.11",
+	"credit": "Made with Blockbench",
+	"parent": "minecraft:block/block",
+	"textures": {
+		"particle": "windtunnel:block/symmetric_airfoil"
+	},
+	"elements": [
+		{
+			"from": [0, 6, 0],
+			"to": [16, 10, 16],
+			"faces": {
+				"north": {"uv": [0, 6, 16, 10], "texture": "#particle"},
+				"east": {"uv": [0, 6, 16, 10], "texture": "#particle"},
+				"south": {"uv": [0, 6, 16, 10], "texture": "#particle"},
+				"west": {"uv": [0, 6, 16, 10], "texture": "#particle"},
+				"up": {"uv": [0, 0, 16, 16], "texture": "#particle"},
+				"down": {"uv": [0, 0, 16, 16], "rotation": 180, "texture": "#particle"}
+			}
+		}
+	]
+}

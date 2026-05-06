@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " I ",
+    "ICI",
+    " I "
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "C": {
+      "item": "create:brass_sheet"
+    }
+  },
+  "result": {
+    "id": "windtunnel:wind_tunnel_mount_interface",
+    "count": 1
+  }
+}
