@@ -23,6 +23,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.DoubleConsumer;
 
+import org.jetbrains.annotations.NotNull;
+
 /**
  * LDLib2-based wind tunnel mount (measurement stand) controls screen.
  * <p>
@@ -172,9 +174,7 @@ public class WindTunnelMountLdlib2Controls {
 
         // --- row 1: lock + clear binding ---
         lockButton = new Button()
-                .setText(Objects.requireNonNull(Component.translatable(locked
-                        ? "block.windtunnel.wind_tunnel_mount.locked"
-                        : "block.windtunnel.wind_tunnel_mount.unlocked")))
+                .setText(Objects.requireNonNull(lockButtonLabel()))
                 .setOnClick(e -> { locked = !locked; updateLabels(); sendToServer(); });
         WindTunnelLdlib2Theme.styleButton(lockButton);
         lockButton.layout(l -> l.widthStretch().height(20));
@@ -187,8 +187,7 @@ public class WindTunnelMountLdlib2Controls {
 
         // --- row 2: application mode + reference mode ---
         modeButton = new Button()
-                .setText(Objects.requireNonNull(Component.translatable(
-                        Objects.requireNonNull(modeLabel()))))
+                .setText(Objects.requireNonNull(modeButtonLabel()))
                 .setOnClick(e -> {
                     applicationMode = applicationMode.next();
                     updateLabels();
@@ -198,8 +197,7 @@ public class WindTunnelMountLdlib2Controls {
         modeButton.layout(l -> l.widthStretch().height(20));
 
         referenceModeButton = new Button()
-                .setText(Objects.requireNonNull(Component.translatable(
-                        Objects.requireNonNull(refLabel()))))
+                .setText(Objects.requireNonNull(referenceButtonLabel()))
                 .setOnClick(e -> {
                     referenceMode = referenceMode.next();
                     updateLabels();
@@ -329,14 +327,42 @@ public class WindTunnelMountLdlib2Controls {
 
     /* ---- label updaters ---- */
 
-    private String modeLabel() {
+    private String modeValueKey() {
         return applicationMode == WindTunnelMountBlockEntity.ApplicationMode.MULTI_BODY
-                ? "block.windtunnel.wind_tunnel_mount.mode_multi_body" : "block.windtunnel.wind_tunnel_mount.mode_single_body";
+                ? "block.windtunnel.wind_tunnel_mount.mode_multi_body_short"
+                : "block.windtunnel.wind_tunnel_mount.mode_single_body_short";
     }
 
-    private String refLabel() {
+    private String referenceValueKey() {
         return referenceMode == WindTunnelMountBlockEntity.ReferenceMode.CENTER_OF_MASS
-                ? "block.windtunnel.wind_tunnel_mount.reference_center_of_mass" : "block.windtunnel.wind_tunnel_mount.reference_interface";
+                ? "block.windtunnel.wind_tunnel_mount.reference_center_of_mass_short"
+                : "block.windtunnel.wind_tunnel_mount.reference_interface_short";
+    }
+
+    private Component labeledButtonText(@NotNull String labelKey,@NotNull String valueKey) {
+        return Component.translatable(
+                "block.windtunnel.wind_tunnel_mount.field_value",
+                Component.translatable(labelKey),
+                Component.translatable(valueKey));
+    }
+
+    private Component lockButtonLabel() {
+        return labeledButtonText(
+                "block.windtunnel.wind_tunnel_mount.lock_status",
+                locked ? "block.windtunnel.wind_tunnel_mount.locked"
+                        : "block.windtunnel.wind_tunnel_mount.unlocked");
+    }
+    @SuppressWarnings("null")
+    private Component modeButtonLabel() {
+        return labeledButtonText(
+                "block.windtunnel.wind_tunnel_mount.mode_label",
+                modeValueKey());
+    }
+    @SuppressWarnings("null")
+    private Component referenceButtonLabel() {
+        return labeledButtonText(
+                "block.windtunnel.wind_tunnel_mount.reference_label",
+                referenceValueKey());
     }
 
     private void updateMeasurementLabel() {
@@ -353,13 +379,9 @@ public class WindTunnelMountLdlib2Controls {
     }
 
     private void updateLabels() {
-        if (lockButton != null) lockButton.setText(Objects.requireNonNull(Component.translatable(locked
-                ? "block.windtunnel.wind_tunnel_mount.locked"
-                : "block.windtunnel.wind_tunnel_mount.unlocked")));
-        if (modeButton != null) modeButton.setText(Objects.requireNonNull(Component.translatable(
-                Objects.requireNonNull(modeLabel()))));
-        if (referenceModeButton != null) referenceModeButton.setText(Objects.requireNonNull(Component.translatable(
-                Objects.requireNonNull(refLabel()))));
+        if (lockButton != null) lockButton.setText(Objects.requireNonNull(lockButtonLabel()));
+        if (modeButton != null) modeButton.setText(Objects.requireNonNull(modeButtonLabel()));
+        if (referenceModeButton != null) referenceModeButton.setText(Objects.requireNonNull(referenceButtonLabel()));
         if (pitchLockButton != null) pitchLockButton.setText(Objects.requireNonNull(Component.translatable(lockPitch
                 ? "block.windtunnel.wind_tunnel_mount.pitch_locked"
                 : "block.windtunnel.wind_tunnel_mount.pitch_unlocked")));
