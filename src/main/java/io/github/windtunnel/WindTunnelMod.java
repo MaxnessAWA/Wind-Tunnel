@@ -2,6 +2,7 @@ package io.github.windtunnel;
 
 import dev.ryanhcode.sable.api.SubLevelHelper;
 import dev.ryanhcode.sable.platform.SableEventPlatform;
+import io.github.windtunnel.compat.CreateAirfoilAttachment;
 import io.github.windtunnel.content.AirflowInjectorDiagramService;
 import io.github.windtunnel.config.WindTunnelConfig;
 import io.github.windtunnel.content.WindTunnelMountService;
@@ -75,6 +76,7 @@ public final class WindTunnelMod {
         NeoForge.EVENT_BUS.addListener(WindTunnelCommonEvents::onEntityInteractSpecific);
         // Server shutdown gracefully disables all airflow injectors
         NeoForge.EVENT_BUS.addListener(WindTunnelCommonEvents::onServerStopping);
+        CreateAirfoilAttachment.register();
 
         // ---- Phase 3: Sable physics engine integration ----
         if (!windProviderRegistered) {
