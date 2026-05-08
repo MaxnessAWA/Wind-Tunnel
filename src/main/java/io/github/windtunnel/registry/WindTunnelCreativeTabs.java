@@ -21,13 +21,18 @@ public final class WindTunnelCreativeTabs {
                     .title(Component.translatable("itemGroup.windtunnel.main"))
                     .icon(WindTunnelCreativeTabs::createWindTunnelIcon)
                     .displayItems((parameters, output) -> {
-                        // All five block items in the mod
+                        // All block items in the mod
                         output.accept(WindTunnelBlocks.WIND_TUNNEL_ITEM.get());
                         output.accept(WindTunnelBlocks.WIND_TUNNEL_CONTROLLER_ITEM.get());
                         output.accept(WindTunnelBlocks.AIRFLOW_INJECTOR_ITEM.get());
                         output.accept(WindTunnelBlocks.WIND_TUNNEL_MOUNT_ITEM.get());
                         output.accept(WindTunnelBlocks.WIND_TUNNEL_MOUNT_INTERFACE_ITEM.get());
-                        output.accept(WindTunnelBlocks.SYMMETRIC_AIRFOIL_ITEM.get());
+                        for (var airfoilItem : WindTunnelBlocks.symmetricAirfoilItems()) {
+                            output.accept(airfoilItem.get());
+                        }
+                        for (var airfoilItem : WindTunnelBlocks.verticalSymmetricAirfoilItems()) {
+                            output.accept(airfoilItem.get());
+                        }
                     })
                     .build());
 

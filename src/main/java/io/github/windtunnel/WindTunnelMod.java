@@ -7,6 +7,7 @@ import io.github.windtunnel.content.AirflowInjectorDiagramService;
 import io.github.windtunnel.config.WindTunnelConfig;
 import io.github.windtunnel.content.WindTunnelMountService;
 import io.github.windtunnel.content.WindTunnelWindProvider;
+import io.github.windtunnel.data.WindTunnelDataGenerators;
 import io.github.windtunnel.registry.WindTunnelBlockEntities;
 import io.github.windtunnel.registry.WindTunnelBlocks;
 import io.github.windtunnel.registry.WindTunnelCreativeTabs;
@@ -61,6 +62,7 @@ public final class WindTunnelMod {
 
         // Network payload registration
         modBus.addListener(NetworkHooks::registerPayloads);
+        modBus.addListener(WindTunnelDataGenerators::gatherData);
 
         // Client-only registrations are guarded by FMLEnvironment to avoid classloading errors
         // on dedicated servers.

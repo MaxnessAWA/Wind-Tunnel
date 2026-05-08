@@ -73,7 +73,6 @@ public class WindTunnelMountLdlib2Controls {
     private TextField offsetXField;
     private TextField offsetYField;
     private TextField offsetZField;
-    private Label measurementLabel;
     private Label momentLabel;
     private WindTunnelLdlib2DiagramElement diagramElement;
     private WindTunnelResizableUi.SizeState sizeState;
@@ -159,10 +158,10 @@ public class WindTunnelMountLdlib2Controls {
 
     public ModularUI createUi() {
         loadFromBlockEntity();
-        sizeState = WindTunnelResizableUi.sizeState(WINDOW_STORAGE_KEY, 580, 368, 0.86F, 0.76F);
+        sizeState = WindTunnelResizableUi.sizeState(WINDOW_STORAGE_KEY, 580, 350, 0.86F, 0.76F);
 
         var root = new UIElement()
-                .layout(l -> l.widthStretch().heightStretch().minWidth(580).minHeight(368)
+                .layout(l -> l.widthStretch().heightStretch().minWidth(580).minHeight(350)
                         .paddingLeft(5).paddingRight(5).paddingTop(5).paddingBottom(5)
                         .gapAll(6).flexDirection(FlexDirection.ROW))
                 .style(s -> s.background(WindTunnelLdlib2Theme.PANEL))
@@ -235,14 +234,12 @@ public class WindTunnelMountLdlib2Controls {
                 .layout(l -> l.widthStretch().height(20).gapAll(4).flexDirection(FlexDirection.ROW))
                 .addChildren(pitchLockButton, rollLockButton, yawLockButton);
 
-        measurementLabel = new Label();
         momentLabel = new Label();
-        WindTunnelLdlib2Theme.styleLabel(measurementLabel);
         WindTunnelLdlib2Theme.styleLabel(momentLabel);
         updateMeasurementLabel();
         UIElement measurementSection = new UIElement()
                 .layout(l -> l.widthStretch().gapAll(2).flexDirection(FlexDirection.COLUMN))
-                .addChildren(measurementLabel, momentLabel);
+                .addChildren(momentLabel);
         UIElement bottomSpacer = new UIElement()
                 .layout(l -> l.widthStretch().flexGrow(1).flexShrink(1));
 
@@ -366,11 +363,6 @@ public class WindTunnelMountLdlib2Controls {
     }
 
     private void updateMeasurementLabel() {
-        if (measurementLabel != null) {
-            measurementLabel.setText(Objects.requireNonNull(String.format(
-                    "L %.2f  D %.2f  Y %.2f",
-                    measurement.lift(), measurement.drag(), measurement.sideForce())));
-        }
         if (momentLabel != null) {
             momentLabel.setText(Objects.requireNonNull(String.format(
                     "P %.2f  R %.2f  N %.2f",

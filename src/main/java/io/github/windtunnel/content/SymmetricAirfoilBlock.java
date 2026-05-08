@@ -5,6 +5,7 @@ import com.simibubi.create.content.equipment.wrench.IWrenchable;
 import dev.ryanhcode.sable.api.block.BlockSubLevelLiftProvider;
 import dev.ryanhcode.sable.companion.math.Pose3d;
 import dev.ryanhcode.sable.sublevel.ServerSubLevel;
+import io.github.windtunnel.registry.WindTunnelBlocks;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Predicate;
@@ -13,11 +14,12 @@ import net.createmod.catnip.placement.PlacementHelpers;
 import net.createmod.catnip.placement.PlacementOffset;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.util.StringRepresentable;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.item.DyeItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.Level;
@@ -30,7 +32,8 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
-import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
@@ -42,24 +45,20 @@ import org.joml.Vector3dc;
 /**
  * Symmetric airfoil block with a fixed quarter-chord aerodynamic center.
  *
- * <p>The block uses its facing as the local chord direction. A separate half selector controls
- * whether the span points to the block's local left or right side, which makes the generated
- * lift sign deterministic for mirrored placements without introducing a block entity.</p>
+ * <p>The block uses its facing as the local chord direction. Its span is fixed horizontally so
+ * the symmetric surface has a single meaningful state per facing.</p>
  */
 public class SymmetricAirfoilBlock extends Block implements IWrenchable, BlockSubLevelLiftProvider {
     public static final MapCodec<SymmetricAirfoilBlock> CODEC = simpleCodec(SymmetricAirfoilBlock::new);
-    public static final DirectionProperty FACING = BlockStateProperties.FACING;
-    public static final EnumProperty<SpanHalf> SPAN_HALF = EnumProperty.create("span_half", SpanHalf.class);
+    public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
     private static final int PLACEMENT_HELPER_ID = PlacementHelpers.register(new PlacementHelper());
     private static final VoxelShape SHAPE = Block.box(0.0D, 6.0D, 0.0D, 16.0D, 10.0D, 16.0D);
 
     public SymmetricAirfoilBlock(BlockBehaviour.Properties properties) {
         super(properties);
         DirectionProperty facing = Objects.requireNonNull(FACING);
-        EnumProperty<SpanHalf> spanHalf = Objects.requireNonNull(SPAN_HALF);
         this.registerDefaultState(Objects.requireNonNull(this.stateDefinition.any()
-                .setValue(facing, Direction.NORTH)
-                .setValue(spanHalf, SpanHalf.LEFT)));
+                .setValue(facing, Direction.NORTH)));
     }
 
     @Override
@@ -69,21 +68,15 @@ public class SymmetricAirfoilBlock extends Block implements IWrenchable, BlockSu
 
     @Override
     protected void createBlockStateDefinition(@NotNull StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(FACING, SPAN_HALF);
+        builder.add(FACING);
     }
 
     @Override
     public BlockState getStateForPlacement(@NotNull BlockPlaceContext context) {
-        Direction facing = context.getNearestLookingDirection().getOpposite();
-        if (facing.getAxis().isVertical()) {
-            facing = context.getHorizontalDirection().getOpposite();
-        }
-        SpanHalf spanHalf = spanHalfForPlacement(context, facing);
+        Direction facing = context.getHorizontalDirection().getOpposite();
         DirectionProperty facingProp = Objects.requireNonNull(FACING);
-        EnumProperty<SpanHalf> spanHalfProp = Objects.requireNonNull(SPAN_HALF);
         return this.defaultBlockState()
-                .setValue(facingProp, Objects.requireNonNull(facing))
-                .setValue(spanHalfProp, Objects.requireNonNull(spanHalf));
+                .setValue(facingProp, Objects.requireNonNull(facing));
     }
 
     @Override
@@ -96,14 +89,8 @@ public class SymmetricAirfoilBlock extends Block implements IWrenchable, BlockSu
     @Override
     public BlockState mirror(@NotNull BlockState state, @NotNull Mirror mirror) {
         DirectionProperty facingProp = Objects.requireNonNull(FACING);
-        EnumProperty<SpanHalf> spanHalfProp = Objects.requireNonNull(SPAN_HALF);
-        BlockState mirrored = rotate(state, Objects.requireNonNull(mirror.getRotation(
+        return rotate(state, Objects.requireNonNull(mirror.getRotation(
                 Objects.requireNonNull(state.getValue(facingProp)))));
-        if (mirror == Mirror.NONE) {
-            return mirrored;
-        }
-        return mirrored.setValue(spanHalfProp,
-                Objects.requireNonNull(mirrored.getValue(spanHalfProp)) == SpanHalf.LEFT ? SpanHalf.RIGHT : SpanHalf.LEFT);
     }
 
     @Override
@@ -144,6 +131,13 @@ public class SymmetricAirfoilBlock extends Block implements IWrenchable, BlockSu
     @Override
     protected ItemInteractionResult useItemOn(@NotNull ItemStack stack, @NotNull BlockState state, @NotNull Level level, @NotNull BlockPos pos,
                                               @NotNull Player player, @NotNull InteractionHand hand, @NotNull BlockHitResult hitResult) {
+        if (stack.getItem() instanceof DyeItem dyeItem) {
+            ItemInteractionResult dyeResult = dye(level, pos, state, player, stack, Objects.requireNonNull(dyeItem.getDyeColor()));
+            if (dyeResult != ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION) {
+                return dyeResult;
+            }
+        }
+
         if (!player.isShiftKeyDown() && player.mayBuild()) {
             IPlacementHelper placementHelper = PlacementHelpers.get(PLACEMENT_HELPER_ID);
             if (placementHelper.matchesItem(stack)) {
@@ -156,9 +150,51 @@ public class SymmetricAirfoilBlock extends Block implements IWrenchable, BlockSu
         return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
     }
 
+    private static ItemInteractionResult dye(Level level, BlockPos pos, BlockState state, Player player, ItemStack stack, DyeColor color) {
+        DyeColor currentColor = WindTunnelBlocks.airfoilColor(state.getBlock());
+        if (currentColor == null) {
+            return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        }
+        if (currentColor == color) {
+            return ItemInteractionResult.CONSUME;
+        }
+
+        Block recoloredBlock = WindTunnelBlocks.recoloredAirfoil(state.getBlock(), color);
+        if (recoloredBlock == null) {
+            return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        }
+
+        BlockState recolored = recoloredBlock.defaultBlockState()
+                .setValue(Objects.requireNonNull(FACING), state.getValue(Objects.requireNonNull(FACING)));
+
+        if (!level.isClientSide()) {
+            level.setBlock(pos, recolored, Block.UPDATE_ALL);
+            level.playSound(null, pos, SoundEvents.DYE_USE, SoundSource.BLOCKS, 1.0F, 1.0F);
+            if (!player.getAbilities().instabuild) {
+                stack.shrink(1);
+            }
+        }
+        return ItemInteractionResult.SUCCESS;
+    }
+
     @Override
     public @NotNull Direction sable$getNormal(BlockState state) {
         return Objects.requireNonNull(surfaceNormal(state));
+    }
+
+    protected Direction getSpanDirection(BlockState state) {
+        Direction chord = state.getValue(Objects.requireNonNull(FACING));
+        return horizontalSpanDirection(chord);
+    }
+
+    protected Direction getSurfaceNormal(BlockState state) {
+        Direction chord = state.getValue(Objects.requireNonNull(FACING));
+        Direction span = getSpanDirection(state);
+        return directionFromVector(new Vector3d(directionVector(span)).cross(directionVector(chord)));
+    }
+
+    protected Direction.Axis getSurfaceNormalAxis(BlockState state) {
+        return getSurfaceNormal(state).getAxis();
     }
 
     @Override
@@ -169,7 +205,7 @@ public class SymmetricAirfoilBlock extends Block implements IWrenchable, BlockSu
                                             @Nullable LiftProviderGroup group) {
         BlockState state = ctx.state();
         Direction chord = state.getValue(Objects.requireNonNull(FACING));
-        Direction span = spanDirection(chord, state.getValue(Objects.requireNonNull(SPAN_HALF)));
+        Direction span = getSpanDirection(state);
         SymmetricAirfoilAerodynamics.contribute(
                 new SymmetricAirfoilAerodynamics.BlockSubLevelAirfoilContext(ctx.pos(), state, chord, span),
                 subLevel,
@@ -183,30 +219,29 @@ public class SymmetricAirfoilBlock extends Block implements IWrenchable, BlockSu
         );
     }
 
-    private static SpanHalf spanHalfForPlacement(BlockPlaceContext context, Direction facing) {
-        Direction playerHorizontal = context.getHorizontalDirection();
-        if (playerHorizontal.getAxis() == facing.getAxis()) {
-            return SpanHalf.LEFT;
-        }
-        Vector3d facingVec = directionVector(facing);
-        Vector3d playerVec = directionVector(playerHorizontal);
-        Vector3d cross = facingVec.cross(playerVec, new Vector3d());
-        return cross.y() >= 0.0D ? SpanHalf.LEFT : SpanHalf.RIGHT;
-    }
-
-    private static Direction spanDirection(Direction chord, SpanHalf spanHalf) {
-        return spanHalf == SpanHalf.LEFT
-                ? chord.getClockWise(Direction.Axis.Y)
-                : chord.getCounterClockWise(Direction.Axis.Y);
+    private static Direction horizontalSpanDirection(Direction chord) {
+        return switch (chord) {
+            case NORTH -> Direction.EAST;
+            case EAST -> Direction.SOUTH;
+            case SOUTH -> Direction.WEST;
+            case WEST -> Direction.NORTH;
+            case UP, DOWN -> throw new IllegalArgumentException("Airfoil facing must be horizontal: " + chord);
+        };
     }
 
     public static Direction surfaceNormal(BlockState state) {
+        if (state.getBlock() instanceof SymmetricAirfoilBlock airfoil) {
+            return airfoil.getSurfaceNormal(state);
+        }
         Direction chord = state.getValue(Objects.requireNonNull(FACING));
-        Direction span = spanDirection(chord, state.getValue(Objects.requireNonNull(SPAN_HALF)));
+        Direction span = horizontalSpanDirection(chord);
         return directionFromVector(new Vector3d(directionVector(span)).cross(directionVector(chord)));
     }
 
     public static Direction.Axis surfaceNormalAxis(BlockState state) {
+        if (state.getBlock() instanceof SymmetricAirfoilBlock airfoil) {
+            return airfoil.getSurfaceNormalAxis(state);
+        }
         return surfaceNormal(state).getAxis();
     }
 
@@ -247,29 +282,11 @@ public class SymmetricAirfoilBlock extends Block implements IWrenchable, BlockSu
 
             Direction firstDir = Objects.requireNonNull(directions.get(0));
             DirectionProperty facingProp = Objects.requireNonNull(FACING);
-            EnumProperty<SpanHalf> spanHalfProp = Objects.requireNonNull(SPAN_HALF);
             return PlacementOffset.success(
                     Objects.requireNonNull(pos.relative(firstDir)),
                     placedState -> placedState
                             .setValue(facingProp, Objects.requireNonNull(state.getValue(facingProp)))
-                            .setValue(spanHalfProp, Objects.requireNonNull(state.getValue(spanHalfProp)))
             );
-        }
-    }
-
-    public enum SpanHalf implements StringRepresentable {
-        LEFT("left"),
-        RIGHT("right");
-
-        private final String serializedName;
-
-        SpanHalf(String serializedName) {
-            this.serializedName = serializedName;
-        }
-
-        @Override
-        public String getSerializedName() {
-            return serializedName;
         }
     }
 }

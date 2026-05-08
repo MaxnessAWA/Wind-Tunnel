@@ -66,7 +66,7 @@ neoForge {
             gameDirectory = project.file('runs/data')
             programArguments.addAll '--mod', mod_id, '--all',
                     '--output', file('src/generated/resources').absolutePath,
-                    '--existing', file('src/main/resources').absolutePath,
+                    '--existing', file('build/resources/main').absolutePath,
                     '--existing-mod', 'create',
                     '--existing-mod', 'aeronautics'
         }
@@ -92,6 +92,12 @@ dependencies {
     compileOnly("dev.simulated_team.simulated:simulated-neoforge-1.21.1:${simulated_version}") { transitive = false }
     implementation("com.lowdragmc.ldlib2:ldlib2-neoforge-${minecraft_version}:${ldlib2_version}:all")
     implementation("org.appliedenergistics.yoga:yoga:${yoga_version}")
+
+    runtimeOnly("dev.ryanhcode.sable:sable-neoforge-1.21.1:${sable_version}") { transitive = false }
+    runtimeOnly(fileTree(dir: 'runs/client/mods', include: [
+            '*create-1.21.1-6.0.9.jar',
+            '*create-aeronautics-bundled-1.21.1-1.0.3.jar'
+    ]))
 }
 
 tasks.withType(JavaCompile).configureEach {

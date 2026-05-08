@@ -3,11 +3,17 @@ package io.github.windtunnel.registry;
 import io.github.windtunnel.WindTunnelMod;
 import io.github.windtunnel.content.AirflowInjectorBlock;
 import io.github.windtunnel.content.SymmetricAirfoilBlock;
+import io.github.windtunnel.content.VerticalSymmetricAirfoilBlock;
 import io.github.windtunnel.content.WindTunnelBlock;
 import io.github.windtunnel.content.WindTunnelControllerBlock;
 import io.github.windtunnel.content.WindTunnelMountBlock;
 import io.github.windtunnel.content.WindTunnelMountInterfaceBlock;
+import java.util.Collections;
+import java.util.EnumMap;
+import java.util.Map;
+import java.util.Objects;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
@@ -76,13 +82,10 @@ public final class WindTunnelBlocks {
                     .requiresCorrectToolForDrops()));
 
     // ---- Symmetric Airfoil: custom aerodynamic lifting surface ----
-    public static final DeferredHolder<Block, SymmetricAirfoilBlock> SYMMETRIC_AIRFOIL = BLOCKS.register("symmetric_airfoil",
-            () -> new SymmetricAirfoilBlock(BlockBehaviour.Properties.of()
-                    .mapColor(MapColor.COLOR_LIGHT_BLUE)
-                    .strength(2.5F, 5.0F)
-                    .sound(SoundType.METAL)
-                    .noOcclusion()
-                    .requiresCorrectToolForDrops()));
+    public static final Map<DyeColor, DeferredHolder<Block, SymmetricAirfoilBlock>> SYMMETRIC_AIRFOILS =
+            registerSymmetricAirfoils();
+    public static final Map<DyeColor, DeferredHolder<Block, VerticalSymmetricAirfoilBlock>> VERTICAL_SYMMETRIC_AIRFOILS =
+            registerVerticalSymmetricAirfoils();
 
     // ---- Block items: one per block ----
     public static final DeferredHolder<Item, BlockItem> WIND_TUNNEL_ITEM = ITEMS.register("wind_tunnel",
@@ -100,9 +103,107 @@ public final class WindTunnelBlocks {
     public static final DeferredHolder<Item, BlockItem> WIND_TUNNEL_MOUNT_INTERFACE_ITEM = ITEMS.register("wind_tunnel_mount_interface",
             () -> new BlockItem(WIND_TUNNEL_MOUNT_INTERFACE.get(), new Item.Properties()));
 
-    public static final DeferredHolder<Item, BlockItem> SYMMETRIC_AIRFOIL_ITEM = ITEMS.register("symmetric_airfoil",
-            () -> new BlockItem(SYMMETRIC_AIRFOIL.get(), new Item.Properties()));
+    public static final Map<DyeColor, DeferredHolder<Item, BlockItem>> SYMMETRIC_AIRFOIL_ITEMS =
+            registerSymmetricAirfoilItems();
+    public static final Map<DyeColor, DeferredHolder<Item, BlockItem>> VERTICAL_SYMMETRIC_AIRFOIL_ITEMS =
+            registerVerticalSymmetricAirfoilItems();
 
     private WindTunnelBlocks() {
+    }
+
+    public static Iterable<DeferredHolder<Item, BlockItem>> symmetricAirfoilItems() {
+        return SYMMETRIC_AIRFOIL_ITEMS.values();
+    }
+
+    public static Iterable<DeferredHolder<Item, BlockItem>> verticalSymmetricAirfoilItems() {
+        return VERTICAL_SYMMETRIC_AIRFOIL_ITEMS.values();
+    }
+
+    public static SymmetricAirfoilBlock symmetricAirfoil(DyeColor color) {
+        return Objects.requireNonNull(SYMMETRIC_AIRFOILS.get(color)).get();
+    }
+
+    public static DyeColor symmetricAirfoilColor(Block block) {
+        for (Map.Entry<DyeColor, DeferredHolder<Block, SymmetricAirfoilBlock>> entry : SYMMETRIC_AIRFOILS.entrySet()) {
+            if (entry.getValue().get() == block) {
+                return entry.getKey();
+            }
+        }
+        return null;
+    }
+
+    public static VerticalSymmetricAirfoilBlock verticalSymmetricAirfoil(DyeColor color) {
+        return Objects.requireNonNull(VERTICAL_SYMMETRIC_AIRFOILS.get(color)).get();
+    }
+
+    public static DyeColor verticalSymmetricAirfoilColor(Block block) {
+        for (Map.Entry<DyeColor, DeferredHolder<Block, VerticalSymmetricAirfoilBlock>> entry : VERTICAL_SYMMETRIC_AIRFOILS.entrySet()) {
+            if (entry.getValue().get() == block) {
+                return entry.getKey();
+            }
+        }
+        return null;
+    }
+
+    public static DyeColor airfoilColor(Block block) {
+        DyeColor color = symmetricAirfoilColor(block);
+        return color != null ? color : verticalSymmetricAirfoilColor(block);
+    }
+
+    public static Block recoloredAirfoil(Block block, DyeColor color) {
+        if (symmetricAirfoilColor(block) != null) {
+            return symmetricAirfoil(color);
+        }
+        if (verticalSymmetricAirfoilColor(block) != null) {
+            return verticalSymmetricAirfoil(color);
+        }
+        return null;
+    }
+
+    private static Map<DyeColor, DeferredHolder<Block, SymmetricAirfoilBlock>> registerSymmetricAirfoils() {
+        EnumMap<DyeColor, DeferredHolder<Block, SymmetricAirfoilBlock>> airfoils = new EnumMap<>(DyeColor.class);
+        for (DyeColor color : DyeColor.values()) {
+            airfoils.put(color, BLOCKS.register(color.getName() + "_symmetric_airfoil",
+                    () -> new SymmetricAirfoilBlock(symmetricAirfoilProperties(color))));
+        }
+        return Collections.unmodifiableMap(airfoils);
+    }
+
+    private static Map<DyeColor, DeferredHolder<Block, VerticalSymmetricAirfoilBlock>> registerVerticalSymmetricAirfoils() {
+        EnumMap<DyeColor, DeferredHolder<Block, VerticalSymmetricAirfoilBlock>> airfoils = new EnumMap<>(DyeColor.class);
+        for (DyeColor color : DyeColor.values()) {
+            airfoils.put(color, BLOCKS.register(color.getName() + "_vertical_symmetric_airfoil",
+                    () -> new VerticalSymmetricAirfoilBlock(symmetricAirfoilProperties(color))));
+        }
+        return Collections.unmodifiableMap(airfoils);
+    }
+
+    private static Map<DyeColor, DeferredHolder<Item, BlockItem>> registerSymmetricAirfoilItems() {
+        EnumMap<DyeColor, DeferredHolder<Item, BlockItem>> airfoilItems = new EnumMap<>(DyeColor.class);
+        for (DyeColor color : DyeColor.values()) {
+            DeferredHolder<Block, SymmetricAirfoilBlock> block = Objects.requireNonNull(SYMMETRIC_AIRFOILS.get(color));
+            airfoilItems.put(color, ITEMS.register(color.getName() + "_symmetric_airfoil",
+                    () -> new BlockItem(block.get(), new Item.Properties())));
+        }
+        return Collections.unmodifiableMap(airfoilItems);
+    }
+
+    private static Map<DyeColor, DeferredHolder<Item, BlockItem>> registerVerticalSymmetricAirfoilItems() {
+        EnumMap<DyeColor, DeferredHolder<Item, BlockItem>> airfoilItems = new EnumMap<>(DyeColor.class);
+        for (DyeColor color : DyeColor.values()) {
+            DeferredHolder<Block, VerticalSymmetricAirfoilBlock> block = Objects.requireNonNull(VERTICAL_SYMMETRIC_AIRFOILS.get(color));
+            airfoilItems.put(color, ITEMS.register(color.getName() + "_vertical_symmetric_airfoil",
+                    () -> new BlockItem(block.get(), new Item.Properties())));
+        }
+        return Collections.unmodifiableMap(airfoilItems);
+    }
+
+    private static BlockBehaviour.Properties symmetricAirfoilProperties(DyeColor color) {
+        return BlockBehaviour.Properties.of()
+                .mapColor(Objects.requireNonNull(color.getMapColor()))
+                .strength(2.5F, 5.0F)
+                .sound(SoundType.METAL)
+                .noOcclusion()
+                .requiresCorrectToolForDrops();
     }
 }

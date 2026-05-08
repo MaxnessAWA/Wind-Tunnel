@@ -1,0 +1,7 @@
+{
+  "parent": "windtunnel:block/airfoil/vertical_symmetric_airfoil_base",
+  "textures": {
+    "0": "windtunnel:block/airfoil/symmetric_airfoil_red",
+    "particle": "windtunnel:block/airfoil/symmetric_airfoil_red"
+  }
+}

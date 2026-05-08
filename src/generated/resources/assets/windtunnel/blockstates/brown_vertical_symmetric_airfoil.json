@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=east": {
+      "model": "windtunnel:block/airfoil/brown_vertical_symmetric_airfoil",
+      "y": 90
+    },
+    "facing=north": {
+      "model": "windtunnel:block/airfoil/brown_vertical_symmetric_airfoil"
+    },
+    "facing=south": {
+      "model": "windtunnel:block/airfoil/brown_vertical_symmetric_airfoil",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "windtunnel:block/airfoil/brown_vertical_symmetric_airfoil",
+      "y": 270
+    }
+  }
+}

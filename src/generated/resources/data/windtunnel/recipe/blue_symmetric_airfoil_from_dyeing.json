@@ -1,0 +1,61 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "building",
+  "group": "symmetric_airfoil",
+  "ingredients": [
+    {
+      "item": "minecraft:blue_dye"
+    },
+    [
+      {
+        "item": "windtunnel:white_symmetric_airfoil"
+      },
+      {
+        "item": "windtunnel:orange_symmetric_airfoil"
+      },
+      {
+        "item": "windtunnel:magenta_symmetric_airfoil"
+      },
+      {
+        "item": "windtunnel:light_blue_symmetric_airfoil"
+      },
+      {
+        "item": "windtunnel:yellow_symmetric_airfoil"
+      },
+      {
+        "item": "windtunnel:lime_symmetric_airfoil"
+      },
+      {
+        "item": "windtunnel:pink_symmetric_airfoil"
+      },
+      {
+        "item": "windtunnel:gray_symmetric_airfoil"
+      },
+      {
+        "item": "windtunnel:light_gray_symmetric_airfoil"
+      },
+      {
+        "item": "windtunnel:cyan_symmetric_airfoil"
+      },
+      {
+        "item": "windtunnel:purple_symmetric_airfoil"
+      },
+      {
+        "item": "windtunnel:brown_symmetric_airfoil"
+      },
+      {
+        "item": "windtunnel:green_symmetric_airfoil"
+      },
+      {
+        "item": "windtunnel:red_symmetric_airfoil"
+      },
+      {
+        "item": "windtunnel:black_symmetric_airfoil"
+      }
+    ]
+  ],
+  "result": {
+    "count": 1,
+    "id": "windtunnel:blue_symmetric_airfoil"
+  }
+}

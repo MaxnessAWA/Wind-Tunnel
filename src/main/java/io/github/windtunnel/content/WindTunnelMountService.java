@@ -80,7 +80,7 @@ public final class WindTunnelMountService {
     private static final Vector3d WORLD_UP = new Vector3d(0.0D, 1.0D, 0.0D);
     private static final Vector3d WORLD_NORTH = new Vector3d(0.0D, 0.0D, -1.0D);
     private static final double AXIS_EPSILON = 1.0E-6D;
-    private static final double GRAVITY_ACCELERATION = 9.8D;
+    private static final double GRAVITY_ACCELERATION = 11.0D;
     /** Constraint parameters for locking the aircraft in place during measurement. */
     private static final double SUPPORT_LINEAR_STIFFNESS = 10000.0D;
     private static final double SUPPORT_LINEAR_DAMPING = 850.0D;

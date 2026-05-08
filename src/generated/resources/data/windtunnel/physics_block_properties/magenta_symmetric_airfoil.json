@@ -1,7 +1,7 @@
 {
   "priority": 2100,
-  "selector": "windtunnel:symmetric_airfoil",
   "properties": {
     "sable:mass": 0.5
-  }
+  },
+  "selector": "windtunnel:magenta_symmetric_airfoil"
 }
