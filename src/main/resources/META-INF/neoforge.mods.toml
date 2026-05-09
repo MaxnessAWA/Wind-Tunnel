@@ -12,6 +12,9 @@ description='''${mod_description}'''
 [[mixins]]
 config="${mod_id}.mixins.json"
 
+[[mixins]]
+config="${mod_id}-synaxis.mixins.json"
+
 [[dependencies.${mod_id}]]
 modId="neoforge"
 type="required"
@@ -61,6 +64,14 @@ versionRange="${aeronautics_version_range}"
 ordering="AFTER"
 side="BOTH"
 reason="Wind tunnel behavior is intended to complement Create Aeronautics aircraft tuning."
+
+[[dependencies.${mod_id}]]
+modId="synaxis"
+type="optional"
+versionRange="[1.0.2,)"
+ordering="AFTER"
+side="BOTH"
+reason="When Synaxis is present, Wind Tunnel air fields are applied to Synaxis flap aerodynamics."
 
 [features.${mod_id}]
 javaVersion="[${java_version},)"

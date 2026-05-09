@@ -1,0 +1,13 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "io.github.windtunnel.mixin.compat.synaxis",
+  "compatibilityLevel": "JAVA_21",
+  "plugin": "io.github.windtunnel.mixin.WindTunnelCompatMixinPlugin",
+  "mixins": [
+    "SynaxisFlapControlMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}
