@@ -4,7 +4,8 @@
   "package": "io.github.windtunnel.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
-    "BlockSubLevelLiftProviderMixin"
+    "BlockSubLevelLiftProviderMixin",
+    "ServerSubLevelAirfoilMixin"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -12,20 +12,17 @@ import org.joml.Vector3d;
 import org.joml.Vector3dc;
 
 /**
- * Local aerodynamic solver for the symmetric airfoil block.
+ * Local aerodynamic solver for symmetric airfoil sections.
  *
  * <p>The model resolves a 2D airfoil section in the local chord-normal plane, projects the
  * resulting lift/drag pair into body-local coordinates, and applies both impulses at the
- * quarter-chord point. The first version keeps the aerodynamic center fixed and sets
- * additional pitching moment to zero.</p>
+ * quarter-chord point. Airfoils connected along the chord direction are treated as a single
+ * section with a longer chord.</p>
  */
 final class SymmetricAirfoilAerodynamics {
     private static final double MIN_EFFECTIVE_SPEED_SQUARED = 1.0E-6D;
     private static final double EFFECTIVE_AIR_DENSITY_SCALE = 0.2D;
-    private static final double DEFAULT_CHORD = 1.0D;
     private static final double DEFAULT_SPAN = 1.0D;
-    private static final double DEFAULT_AREA = DEFAULT_CHORD * DEFAULT_SPAN;
-    private static final double DEFAULT_ASPECT_RATIO = DEFAULT_SPAN * DEFAULT_SPAN / DEFAULT_AREA;
     private static final double DEFAULT_OSWALD_EFFICIENCY = 0.9D;
     private static final double DEFAULT_ZERO_LIFT_DRAG = 0.02D;
     private static final double PEAK_LIFT_ANGLE_RADIANS = Math.toRadians(15.0D);
@@ -53,6 +50,10 @@ final class SymmetricAirfoilAerodynamics {
         }
         chordLocal.normalize();
         spanLocal.normalize();
+        double chordLength = Math.max(1, ctx.chordBlocks());
+        double spanLength = DEFAULT_SPAN;
+        double area = chordLength * spanLength;
+        double aspectRatio = spanLength * spanLength / area;
 
         Vector3d surfaceNormalLocal = new Vector3d(spanLocal).cross(chordLocal);
         if (surfaceNormalLocal.lengthSquared() <= 1.0E-12D) {
@@ -60,7 +61,7 @@ final class SymmetricAirfoilAerodynamics {
         }
         surfaceNormalLocal.normalize();
 
-        Vector3d quarterChordLocal = quarterChordPoint(ctx.pos(), chordLocal);
+        Vector3d quarterChordLocal = quarterChordPoint(ctx.frontPos(), chordLocal, chordLength);
         Vector3d chordWorld = new Vector3d(chordLocal);
         Vector3d spanWorld = new Vector3d(spanLocal);
         Vector3d aerodynamicCenterWorld = new Vector3d(quarterChordLocal);
@@ -114,10 +115,10 @@ final class SymmetricAirfoilAerodynamics {
             return;
         }
 
-        Coefficients coefficients = coefficients(alpha);
+        Coefficients coefficients = coefficients(alpha, aspectRatio);
         double dynamicPressure = 0.5D * effectiveAirDensity * effectiveSpeedSquared;
-        double liftMagnitude = dynamicPressure * DEFAULT_AREA * coefficients.cl() * timeStep;
-        double dragMagnitude = dynamicPressure * DEFAULT_AREA * coefficients.cd() * timeStep;
+        double liftMagnitude = dynamicPressure * area * coefficients.cl() * timeStep;
+        double dragMagnitude = dynamicPressure * area * coefficients.cd() * timeStep;
 
         Vector3d aerodynamicCenterBodyLocal = subLevelPose.transformPositionInverse(aerodynamicCenterWorld, new Vector3d());
 
@@ -149,14 +150,13 @@ final class SymmetricAirfoilAerodynamics {
         return normalWorld.normalize();
     }
 
-    private static Vector3d quarterChordPoint(BlockPos pos, Vector3d chordLocal) {
-        return new Vector3d(pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D)
-                .fma(0.25D * DEFAULT_CHORD, chordLocal);
+    private static Vector3d quarterChordPoint(BlockPos frontPos, Vector3d chordLocal, double chordLength) {
+        return new Vector3d(frontPos.getX() + 0.5D, frontPos.getY() + 0.5D, frontPos.getZ() + 0.5D)
+                .fma(0.5D - 0.25D * chordLength, chordLocal);
     }
 
-    private static Coefficients coefficients(double alpha) {
+    private static Coefficients coefficients(double alpha, double aspectRatio) {
         double absAlpha = Math.abs(alpha);
-        double aspectRatio = DEFAULT_ASPECT_RATIO;
         double liftSlope = (2.0D * Math.PI * aspectRatio) / (aspectRatio + 2.0D);
         double clLinear = liftSlope * alpha;
         double cdLinear = DEFAULT_ZERO_LIFT_DRAG + (clLinear * clLinear) / (Math.PI * DEFAULT_OSWALD_EFFICIENCY * aspectRatio);
@@ -201,6 +201,7 @@ final class SymmetricAirfoilAerodynamics {
     record Coefficients(double cl, double cd) {
     }
 
-    record BlockSubLevelAirfoilContext(BlockPos pos, BlockState state, Direction chordDirection, Direction spanDirection) {
+    record BlockSubLevelAirfoilContext(BlockPos frontPos, BlockState state, Direction chordDirection,
+                                       Direction spanDirection, int chordBlocks) {
     }
 }

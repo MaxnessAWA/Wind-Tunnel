@@ -43,10 +43,11 @@ import org.joml.Vector3d;
 import org.joml.Vector3dc;
 
 /**
- * Symmetric airfoil block with a fixed quarter-chord aerodynamic center.
+ * Symmetric airfoil block with a quarter-chord aerodynamic center.
  *
  * <p>The block uses its facing as the local chord direction. Its span is fixed horizontally so
- * the symmetric surface has a single meaningful state per facing.</p>
+ * the symmetric surface has a single meaningful state per facing. Same-kind airfoils connected
+ * along that chord direction are treated as one aerodynamic section.</p>
  */
 public class SymmetricAirfoilBlock extends Block implements IWrenchable, BlockSubLevelLiftProvider {
     public static final MapCodec<SymmetricAirfoilBlock> CODEC = simpleCodec(SymmetricAirfoilBlock::new);
@@ -206,8 +207,18 @@ public class SymmetricAirfoilBlock extends Block implements IWrenchable, BlockSu
         BlockState state = ctx.state();
         Direction chord = state.getValue(Objects.requireNonNull(FACING));
         Direction span = getSpanDirection(state);
+        ConnectedAirfoilSection section = resolveConnectedAirfoilSection(ctx, subLevel, localPose, state, chord);
+        if (section == null) {
+            return;
+        }
         SymmetricAirfoilAerodynamics.contribute(
-                new SymmetricAirfoilAerodynamics.BlockSubLevelAirfoilContext(ctx.pos(), state, chord, span),
+                new SymmetricAirfoilAerodynamics.BlockSubLevelAirfoilContext(
+                        section.frontPos(),
+                        state,
+                        chord,
+                        span,
+                        section.chordBlocks()
+                ),
                 subLevel,
                 localPose,
                 timeStep,
@@ -217,6 +228,49 @@ public class SymmetricAirfoilBlock extends Block implements IWrenchable, BlockSu
                 angularImpulse,
                 group
         );
+    }
+
+    @Nullable
+    private ConnectedAirfoilSection resolveConnectedAirfoilSection(LiftProviderContext ctx, ServerSubLevel subLevel,
+                                                                   @Nullable Pose3d localPose, BlockState state,
+                                                                   Direction chord) {
+        BlockPos pos = ctx.pos();
+        BlockGetter localBlocks = localPose == null ? subLevel.getLevel() : AirfoilContraptionContext.getBlockGetter(ctx);
+        if (localBlocks == null) {
+            return new ConnectedAirfoilSection(pos, 1);
+        }
+        if (isConnectedAirfoil(localBlocks, pos.relative(chord), state, chord)) {
+            return null;
+        }
+
+        int chordBlocks = 1;
+        BlockPos cursor = pos;
+        Direction tailDirection = chord.getOpposite();
+        while (true) {
+            BlockPos next = cursor.relative(tailDirection);
+            if (!isConnectedAirfoil(localBlocks, next, state, chord)) {
+                break;
+            }
+            cursor = next;
+            chordBlocks++;
+        }
+
+        return new ConnectedAirfoilSection(pos, chordBlocks);
+    }
+
+    private static boolean isConnectedAirfoil(BlockGetter localBlocks, BlockPos pos, BlockState origin, Direction chord) {
+        BlockState candidate = localBlocks.getBlockState(pos);
+        return isSameAirfoilKind(origin, candidate)
+                && candidate.hasProperty(FACING)
+                && candidate.getValue(FACING) == chord;
+    }
+
+    private static boolean isSameAirfoilKind(BlockState origin, BlockState candidate) {
+        if (!(candidate.getBlock() instanceof SymmetricAirfoilBlock)) {
+            return false;
+        }
+        return (origin.getBlock() instanceof VerticalSymmetricAirfoilBlock)
+                == (candidate.getBlock() instanceof VerticalSymmetricAirfoilBlock);
     }
 
     private static Direction horizontalSpanDirection(Direction chord) {
@@ -251,6 +305,9 @@ public class SymmetricAirfoilBlock extends Block implements IWrenchable, BlockSu
 
     private static Vector3d directionVector(Direction direction) {
         return new Vector3d(direction.getStepX(), direction.getStepY(), direction.getStepZ());
+    }
+
+    private record ConnectedAirfoilSection(BlockPos frontPos, int chordBlocks) {
     }
 
     private static final class PlacementHelper implements IPlacementHelper {
