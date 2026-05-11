@@ -5,6 +5,9 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+
+import org.jetbrains.annotations.NotNull;
+
 import net.minecraft.data.CachedOutput;
 import net.minecraft.data.DataProvider;
 import net.minecraft.data.PackOutput;
@@ -25,8 +28,9 @@ final class WindTunnelAirfoilAssetProvider implements DataProvider {
         this.itemModelPathProvider = output.createPathProvider(PackOutput.Target.RESOURCE_PACK, "models/item");
     }
 
+    @SuppressWarnings("null")
     @Override
-    public CompletableFuture<?> run(CachedOutput output) {
+    public CompletableFuture<?> run(@NotNull CachedOutput output) {
         List<CompletableFuture<?>> futures = new ArrayList<>();
         for (DyeColor color : WindTunnelAirfoilData.COLORS) {
             for (WindTunnelAirfoilData.AirfoilKind kind : WindTunnelAirfoilData.AirfoilKind.values()) {
@@ -84,10 +88,12 @@ final class WindTunnelAirfoilAssetProvider implements DataProvider {
         return root;
     }
 
+    @SuppressWarnings("null")
     private static ResourceLocation windtunnel(String path) {
         return ResourceLocation.fromNamespaceAndPath("windtunnel", path);
     }
 
+    @SuppressWarnings("null")
     private static CompletableFuture<?> save(CachedOutput output, Path path, JsonObject json) {
         return DataProvider.saveStable(output, json, path);
     }

@@ -33,6 +33,7 @@
   "block.windtunnel.airflow_injector.not_on_aircraft": "Airflow injector must be placed on an aircraft physics structure",
   "block.windtunnel.wind_tunnel_mount": "Wind Tunnel Mount",
   "block.windtunnel.wind_tunnel_mount_interface": "Wind Tunnel Mount Interface",
+  "block.windtunnel.hologram_projector": "Hologram Projector",
   "block.windtunnel.white_symmetric_airfoil": "White Symmetric Airfoil",
   "block.windtunnel.orange_symmetric_airfoil": "Orange Symmetric Airfoil",
   "block.windtunnel.magenta_symmetric_airfoil": "Magenta Symmetric Airfoil",

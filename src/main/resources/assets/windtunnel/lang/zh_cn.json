@@ -33,6 +33,7 @@
   "block.windtunnel.airflow_injector.not_on_aircraft": "机载来流发生器必须安装在飞行器物理结构上",
   "block.windtunnel.wind_tunnel_mount": "风洞支架",
   "block.windtunnel.wind_tunnel_mount_interface": "风洞支架接口",
+  "block.windtunnel.hologram_projector": "全息投影基座",
   "block.windtunnel.white_symmetric_airfoil": "白色对称翼片",
   "block.windtunnel.orange_symmetric_airfoil": "橙色对称翼片",
   "block.windtunnel.magenta_symmetric_airfoil": "品红色对称翼片",

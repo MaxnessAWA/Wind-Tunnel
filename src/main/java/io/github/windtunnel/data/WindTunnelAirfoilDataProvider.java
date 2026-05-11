@@ -23,6 +23,7 @@ final class WindTunnelAirfoilDataProvider implements DataProvider {
         this.recipePathProvider = output.createPathProvider(PackOutput.Target.DATA_PACK, "recipe");
     }
 
+    @SuppressWarnings("null")
     @Override
     public CompletableFuture<?> run(CachedOutput output) {
         List<CompletableFuture<?>> futures = new ArrayList<>();
@@ -146,10 +147,12 @@ final class WindTunnelAirfoilDataProvider implements DataProvider {
         return root;
     }
 
+    @SuppressWarnings("null")
     private static ResourceLocation windtunnel(String path) {
         return ResourceLocation.fromNamespaceAndPath("windtunnel", path);
     }
 
+    @SuppressWarnings("null")
     private static CompletableFuture<?> save(CachedOutput output, Path path, JsonObject json) {
         return DataProvider.saveStable(output, json, path);
     }

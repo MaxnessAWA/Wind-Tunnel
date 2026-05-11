@@ -151,6 +151,7 @@ public class SymmetricAirfoilBlock extends Block implements IWrenchable, BlockSu
         return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
     }
 
+    @SuppressWarnings("null")
     private static ItemInteractionResult dye(Level level, BlockPos pos, BlockState state, Player player, ItemStack stack, DyeColor color) {
         DyeColor currentColor = WindTunnelBlocks.airfoilColor(state.getBlock());
         if (currentColor == null) {
@@ -230,6 +231,7 @@ public class SymmetricAirfoilBlock extends Block implements IWrenchable, BlockSu
         );
     }
 
+    @SuppressWarnings("null")
     @Nullable
     private ConnectedAirfoilSection resolveConnectedAirfoilSection(LiftProviderContext ctx, ServerSubLevel subLevel,
                                                                    @Nullable Pose3d localPose, BlockState state,
@@ -258,6 +260,7 @@ public class SymmetricAirfoilBlock extends Block implements IWrenchable, BlockSu
         return new ConnectedAirfoilSection(pos, chordBlocks);
     }
 
+    @SuppressWarnings("null")
     private static boolean isConnectedAirfoil(BlockGetter localBlocks, BlockPos pos, BlockState origin, Direction chord) {
         BlockState candidate = localBlocks.getBlockState(pos);
         return isSameAirfoilKind(origin, candidate)

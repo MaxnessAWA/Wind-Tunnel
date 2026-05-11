@@ -59,6 +59,7 @@ public class VerticalSymmetricAirfoilBlock extends SymmetricAirfoilBlock {
         return Direction.UP;
     }
 
+    @SuppressWarnings("null")
     private static VoxelShape shapeForState(BlockState state) {
         Direction facing = state.getValue(FACING);
         return facing.getAxis() == Direction.Axis.X ? EAST_WEST_SHAPE : NORTH_SOUTH_SHAPE;

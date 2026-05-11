@@ -1,6 +1,8 @@
 package io.github.windtunnel;
 
 import io.github.windtunnel.network.SyncWindTunnelControllerPayload;
+import io.github.windtunnel.network.SyncGogglesForceVectorsPayload;
+import io.github.windtunnel.network.SyncHologramProjectorPayload;
 import io.github.windtunnel.network.SyncAirflowInjectorDiagramPayload;
 import io.github.windtunnel.network.SyncWindTunnelMountDiagramPayload;
 import io.github.windtunnel.network.UpdateAirflowInjectorPayload;
@@ -59,5 +61,11 @@ public final class NetworkHooks {
         registrar.playToClient(Objects.requireNonNull(SyncAirflowInjectorDiagramPayload.TYPE),
                 Objects.requireNonNull(SyncAirflowInjectorDiagramPayload.STREAM_CODEC),
                 SyncAirflowInjectorDiagramPayload::handle);
+        registrar.playToClient(Objects.requireNonNull(SyncHologramProjectorPayload.TYPE),
+                Objects.requireNonNull(SyncHologramProjectorPayload.STREAM_CODEC),
+                SyncHologramProjectorPayload::handle);
+        registrar.playToClient(Objects.requireNonNull(SyncGogglesForceVectorsPayload.TYPE),
+                Objects.requireNonNull(SyncGogglesForceVectorsPayload.STREAM_CODEC),
+                SyncGogglesForceVectorsPayload::handle);
     }
 }

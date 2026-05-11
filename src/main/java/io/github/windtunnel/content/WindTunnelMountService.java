@@ -1015,7 +1015,7 @@ public final class WindTunnelMountService {
 
         DiagramCaptureTicket ticket = new DiagramCaptureTicket(mount.getBlockPos().immutable(), targetSubLevels, players, false);
         for (ServerSubLevel targetSubLevel : targetSubLevels) {
-            targetSubLevel.enableIndividualQueuedForcesTracking(true);
+            PointForceTracking.retain(targetSubLevel, PointForceTracking.key("wind_tunnel_mount", mount.getBlockPos()));
             PENDING_DIAGRAM_CAPTURES.put(targetSubLevel, ticket);
         }
     }
@@ -1035,8 +1035,8 @@ public final class WindTunnelMountService {
                 PENDING_DIAGRAM_CAPTURES.put(targetSubLevel, ticket.arm());
                 continue;
             }
-            targetSubLevel.enableIndividualQueuedForcesTracking(false);
             PENDING_DIAGRAM_CAPTURES.remove(targetSubLevel);
+            PointForceTracking.release(targetSubLevel, PointForceTracking.key("wind_tunnel_mount", ticket.mountPos()));
 
             if (!(level.getBlockEntity(ticket.mountPos()) instanceof WindTunnelMountBlockEntity mount) || !mount.hasBinding()) {
                 continue;

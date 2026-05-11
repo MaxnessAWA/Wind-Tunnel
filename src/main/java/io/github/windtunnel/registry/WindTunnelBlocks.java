@@ -2,6 +2,7 @@ package io.github.windtunnel.registry;
 
 import io.github.windtunnel.WindTunnelMod;
 import io.github.windtunnel.content.AirflowInjectorBlock;
+import io.github.windtunnel.content.HologramProjectorBlock;
 import io.github.windtunnel.content.SymmetricAirfoilBlock;
 import io.github.windtunnel.content.VerticalSymmetricAirfoilBlock;
 import io.github.windtunnel.content.WindTunnelBlock;
@@ -81,6 +82,15 @@ public final class WindTunnelBlocks {
                     .noOcclusion()
                     .requiresCorrectToolForDrops()));
 
+    // ---- Hologram Projector: world-space force visualization base ----
+    public static final DeferredHolder<Block, HologramProjectorBlock> HOLOGRAM_PROJECTOR = BLOCKS.register("hologram_projector",
+            () -> new HologramProjectorBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.COLOR_CYAN)
+                    .strength(3.0F, 6.0F)
+                    .sound(SoundType.METAL)
+                    .noOcclusion()
+                    .requiresCorrectToolForDrops()));
+
     // ---- Symmetric Airfoil: custom aerodynamic lifting surface ----
     public static final Map<DyeColor, DeferredHolder<Block, SymmetricAirfoilBlock>> SYMMETRIC_AIRFOILS =
             registerSymmetricAirfoils();
@@ -102,6 +112,9 @@ public final class WindTunnelBlocks {
 
     public static final DeferredHolder<Item, BlockItem> WIND_TUNNEL_MOUNT_INTERFACE_ITEM = ITEMS.register("wind_tunnel_mount_interface",
             () -> new BlockItem(WIND_TUNNEL_MOUNT_INTERFACE.get(), new Item.Properties()));
+
+    public static final DeferredHolder<Item, BlockItem> HOLOGRAM_PROJECTOR_ITEM = ITEMS.register("hologram_projector",
+            () -> new BlockItem(HOLOGRAM_PROJECTOR.get(), new Item.Properties()));
 
     public static final Map<DyeColor, DeferredHolder<Item, BlockItem>> SYMMETRIC_AIRFOIL_ITEMS =
             registerSymmetricAirfoilItems();

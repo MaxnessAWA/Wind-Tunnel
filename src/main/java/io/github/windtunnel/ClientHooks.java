@@ -1,21 +1,27 @@
 package io.github.windtunnel;
 
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import io.github.windtunnel.content.AirflowInjectorLdlib2Controls;
 import io.github.windtunnel.content.AirflowInjectorRenderer;
+import io.github.windtunnel.content.HologramProjectorRenderer;
 import io.github.windtunnel.content.WindTunnelFanRenderer;
 import io.github.windtunnel.content.WindTunnelControllerLdlib2Screen;
+
+import java.io.IOException;
 
 import io.github.windtunnel.content.WindTunnelMountInterfaceRenderer;
 import io.github.windtunnel.content.WindTunnelMountLdlib2Controls;
 import io.github.windtunnel.registry.WindTunnelBlockEntities;
 import io.github.windtunnel.registry.WindTunnelBlocks;
 import io.github.windtunnel.registry.WindTunnelMenus;
+import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.client.resources.model.ModelResourceLocation;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.ItemBlockRenderTypes;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.ModelEvent;
+import net.neoforged.neoforge.client.event.RegisterShadersEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 
 /**
@@ -46,8 +52,18 @@ public final class ClientHooks {
     /** Side-loaded model for the animated mount interface probe. */
     public static final ModelResourceLocation WIND_TUNNEL_MOUNT_INTERFACE_MOVING_MODEL =
             ModelResourceLocation.standalone(ResourceLocation.fromNamespaceAndPath(WindTunnelMod.MOD_ID, "block/wind_tunnel_mount_interface_moving"));
+    private static ShaderInstance hologramBlockShader;
+    private static ShaderInstance hologramEntityShader;
 
     private ClientHooks() {
+    }
+
+    public static ShaderInstance getHologramBlockShader() {
+        return hologramBlockShader;
+    }
+
+    public static ShaderInstance getHologramEntityShader() {
+        return hologramEntityShader;
     }
 
     /** Registers client-side screens mapped to their menu types. */
@@ -66,11 +82,13 @@ public final class ClientHooks {
         // to spin the fan blades independently from the static block model.
         event.registerBlockEntityRenderer(WindTunnelBlockEntities.WIND_TUNNEL.get(), WindTunnelFanRenderer::new);
         event.registerBlockEntityRenderer(WindTunnelBlockEntities.WIND_TUNNEL_MOUNT_INTERFACE.get(), WindTunnelMountInterfaceRenderer::new);
+        event.registerBlockEntityRenderer(WindTunnelBlockEntities.HOLOGRAM_PROJECTOR.get(), HologramProjectorRenderer::new);
         // All blocks with transparency use cutoutMipped for correct alpha rendering
         ItemBlockRenderTypes.setRenderLayer(WindTunnelBlocks.WIND_TUNNEL_CONTROLLER.get(), RenderType.cutoutMipped());
         ItemBlockRenderTypes.setRenderLayer(WindTunnelBlocks.WIND_TUNNEL.get(), RenderType.cutoutMipped());
         ItemBlockRenderTypes.setRenderLayer(WindTunnelBlocks.AIRFLOW_INJECTOR.get(), RenderType.cutoutMipped());
         ItemBlockRenderTypes.setRenderLayer(WindTunnelBlocks.WIND_TUNNEL_MOUNT_INTERFACE.get(), RenderType.cutoutMipped());
+        ItemBlockRenderTypes.setRenderLayer(WindTunnelBlocks.HOLOGRAM_PROJECTOR.get(), RenderType.cutoutMipped());
     }
 
     /**
@@ -83,5 +101,22 @@ public final class ClientHooks {
         event.register(AIRFLOW_INJECTOR_MOVING_MODEL);
         event.register(WIND_TUNNEL_MOVING_MODEL);
         event.register(WIND_TUNNEL_MOUNT_INTERFACE_MOVING_MODEL);
+    }
+
+    public static void registerShaders(RegisterShadersEvent event) {
+        try {
+            event.registerShader(new ShaderInstance(
+                    event.getResourceProvider(),
+                    ResourceLocation.fromNamespaceAndPath(WindTunnelMod.MOD_ID, "hologram_block"),
+                    DefaultVertexFormat.BLOCK
+            ), shader -> hologramBlockShader = shader);
+            event.registerShader(new ShaderInstance(
+                    event.getResourceProvider(),
+                    ResourceLocation.fromNamespaceAndPath(WindTunnelMod.MOD_ID, "hologram_entity"),
+                    DefaultVertexFormat.NEW_ENTITY
+            ), shader -> hologramEntityShader = shader);
+        } catch (IOException exception) {
+            throw new IllegalStateException("Failed to register hologram shaders", exception);
+        }
     }
 }

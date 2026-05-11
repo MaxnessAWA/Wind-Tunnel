@@ -27,6 +27,7 @@ public final class WindTunnelCreativeTabs {
                         output.accept(WindTunnelBlocks.AIRFLOW_INJECTOR_ITEM.get());
                         output.accept(WindTunnelBlocks.WIND_TUNNEL_MOUNT_ITEM.get());
                         output.accept(WindTunnelBlocks.WIND_TUNNEL_MOUNT_INTERFACE_ITEM.get());
+                        output.accept(WindTunnelBlocks.HOLOGRAM_PROJECTOR_ITEM.get());
                         for (var airfoilItem : WindTunnelBlocks.symmetricAirfoilItems()) {
                             output.accept(airfoilItem.get());
                         }

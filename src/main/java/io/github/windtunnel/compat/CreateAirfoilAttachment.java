@@ -36,6 +36,7 @@ public final class CreateAirfoilAttachment {
     }
 
     private static boolean isSailAirfoilPair(BlockState state, Level world, net.minecraft.core.BlockPos pos, Direction direction) {
+        @SuppressWarnings("null")
         BlockState neighbor = world.getBlockState(pos.relative(direction));
         return isAirfoil(state) && isSail(neighbor)
                 || isSail(state) && isAirfoil(neighbor);

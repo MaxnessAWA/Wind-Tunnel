@@ -2,6 +2,7 @@ package io.github.windtunnel.registry;
 
 import io.github.windtunnel.WindTunnelMod;
 import io.github.windtunnel.content.AirflowInjectorBlockEntity;
+import io.github.windtunnel.content.HologramProjectorBlockEntity;
 import io.github.windtunnel.content.WindTunnelBlockEntity;
 import io.github.windtunnel.content.WindTunnelControllerBlockEntity;
 import io.github.windtunnel.content.WindTunnelMountBlockEntity;
@@ -53,6 +54,11 @@ public final class WindTunnelBlockEntities {
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<WindTunnelMountInterfaceBlockEntity>> WIND_TUNNEL_MOUNT_INTERFACE =
             BLOCK_ENTITY_TYPES.register("wind_tunnel_mount_interface",
                     () -> BlockEntityType.Builder.of(WindTunnelMountInterfaceBlockEntity::new, WindTunnelBlocks.WIND_TUNNEL_MOUNT_INTERFACE.get()).build(null));
+
+    /** Hologram projector - renders live point-force arrows around nearby physics structures. */
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<HologramProjectorBlockEntity>> HOLOGRAM_PROJECTOR =
+            BLOCK_ENTITY_TYPES.register("hologram_projector",
+                    () -> BlockEntityType.Builder.of(HologramProjectorBlockEntity::new, WindTunnelBlocks.HOLOGRAM_PROJECTOR.get()).build(null));
 
     private WindTunnelBlockEntities() {
     }

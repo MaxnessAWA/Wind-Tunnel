@@ -16,7 +16,6 @@ import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.core.BlockPos;
@@ -51,6 +50,7 @@ public final class AirflowInjectorDiagramService {
     private static final Map<ResourceKey<Level>, Map<BlockPos, PendingDiagramRequest>> PENDING_REQUESTS = new ConcurrentHashMap<>();
     /** Armed captures: tracking was enabled in pre-tick, data will be read in post-tick. */
     private static final Map<ResourceKey<Level>, Map<BlockPos, DiagramCaptureTicket>> PENDING_CAPTURES = new ConcurrentHashMap<>();
+    private static final double GRAVITY_ACCELERATION = 11.0D;
 
     private AirflowInjectorDiagramService() {
     }
@@ -108,11 +108,15 @@ public final class AirflowInjectorDiagramService {
 
             // Enable individual point-force tracking on all target sublevels for this frame.
             for (ServerSubLevel targetSubLevel : targetSubLevels) {
-                targetSubLevel.enableIndividualQueuedForcesTracking(true);
+                PointForceTracking.retain(targetSubLevel, PointForceTracking.key("airflow_injector", injector.getBlockPos()));
             }
 
             Map<BlockPos, DiagramCaptureTicket> captures =
                     PENDING_CAPTURES.computeIfAbsent(level.dimension(), unused -> new ConcurrentHashMap<>());
+            DiagramCaptureTicket previous = captures.remove(injector.getBlockPos());
+            if (previous != null) {
+                releaseTracking(previous);
+            }
             captures.put(injector.getBlockPos().immutable(),
                     new DiagramCaptureTicket(injector.getBlockPos().immutable(), referenceSubLevel, targetSubLevels, request.players(), false));
         }
@@ -133,7 +137,6 @@ public final class AirflowInjectorDiagramService {
             return;
         }
 
-        Set<ServerSubLevel> subLevelsToDisable = new LinkedHashSet<>();
         for (Map.Entry<BlockPos, DiagramCaptureTicket> entry : new ArrayList<>(captures.entrySet())) {
             DiagramCaptureTicket ticket = entry.getValue();
             // First frame: arm the capture. Actual data collection happens next tick.
@@ -153,19 +156,8 @@ public final class AirflowInjectorDiagramService {
             }
 
             sendToPlayers(ticket.injectorPos(), data, ticket.players());
-            subLevelsToDisable.addAll(ticket.targetSubLevels());
             captures.remove(entry.getKey(), ticket);
-        }
-
-        // Disable tracking on sublevels that are no longer captured by any pending ticket.
-        Set<ServerSubLevel> stillTracked = new LinkedHashSet<>();
-        for (DiagramCaptureTicket remaining : captures.values()) {
-            stillTracked.addAll(remaining.targetSubLevels());
-        }
-        for (ServerSubLevel subLevel : subLevelsToDisable) {
-            if (!stillTracked.contains(subLevel)) {
-                subLevel.enableIndividualQueuedForcesTracking(false);
-            }
+            releaseTracking(ticket);
         }
 
         if (captures.isEmpty()) {
@@ -177,6 +169,13 @@ public final class AirflowInjectorDiagramService {
         SyncAirflowInjectorDiagramPayload payload = SyncAirflowInjectorDiagramPayload.fromData(injectorPos, data);
         for (ServerPlayer player : players) {
             PacketDistributor.sendToPlayer(player, payload);
+        }
+    }
+
+    private static void releaseTracking(DiagramCaptureTicket ticket) {
+        PointForceTracking.Key key = PointForceTracking.key("airflow_injector", ticket.injectorPos());
+        for (ServerSubLevel subLevel : ticket.targetSubLevels()) {
+            PointForceTracking.release(subLevel, key);
         }
     }
 
@@ -277,7 +276,7 @@ public final class AirflowInjectorDiagramService {
         Vector3d centerLocal = referencePose.transformPositionInverse(centerWorld, new Vector3d());
         Vector3d localGravity = new Vector3d(Direction.DOWN.getStepX(), Direction.DOWN.getStepY(), Direction.DOWN.getStepZ());
         referencePose.transformNormalInverse(localGravity);
-        localGravity.mul(9.8D * totalMass);
+        localGravity.mul(GRAVITY_ACCELERATION * totalMass);
         groupedForces.put(ForceGroups.GRAVITY.get(), List.of(WindTunnelMountDiagramData.pointForce(centerLocal, localGravity)));
 
         return new WindTunnelMountDiagramData(

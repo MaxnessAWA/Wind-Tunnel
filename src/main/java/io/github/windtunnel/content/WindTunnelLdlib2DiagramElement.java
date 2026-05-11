@@ -35,7 +35,6 @@ import io.github.windtunnel.network.RequestAirflowInjectorDiagramPayload;
 import io.github.windtunnel.network.RequestWindTunnelMountDiagramPayload;
 import io.github.windtunnel.WindTunnelMod;
 import java.util.ArrayList;
-import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -96,7 +95,7 @@ public class WindTunnelLdlib2DiagramElement extends UIElement implements WindTun
     private static final int TOOLTIP_LABEL_COLOR = -4025475;
     private static final float FBO_BRIGHTNESS = 2.1F;
     private static final Vector3d CAMERA_POSITION = new Vector3d();
-    private static final Map<Source, DiagramViewState> STORED_VIEW_STATES = new EnumMap<>(Source.class);
+    private static final Map<DiagramViewKey, DiagramViewState> STORED_VIEW_STATES = new HashMap<>();
     private static final ResourceLocation DIAGRAM_CONTROLS_TEXTURE =
             ResourceLocation.fromNamespaceAndPath(WindTunnelMod.MOD_ID, "textures/gui/diagram_controls.png");
     private static final int DIAGRAM_CONTROLS_TEX_WIDTH = 32;
@@ -698,7 +697,7 @@ public class WindTunnelLdlib2DiagramElement extends UIElement implements WindTun
     }
 
     private void restoreStoredViewState() {
-        DiagramViewState state = STORED_VIEW_STATES.get(source);
+        DiagramViewState state = STORED_VIEW_STATES.get(viewStateKey());
         if (state == null || diagramConfig == null) {
             return;
         }
@@ -711,7 +710,11 @@ public class WindTunnelLdlib2DiagramElement extends UIElement implements WindTun
         if (diagramConfig == null) {
             return;
         }
-        STORED_VIEW_STATES.put(source, new DiagramViewState(diagramConfig.yaw(), diagramConfig.pitch(), viewport.snapshot()));
+        STORED_VIEW_STATES.put(viewStateKey(), new DiagramViewState(diagramConfig.yaw(), diagramConfig.pitch(), viewport.snapshot()));
+    }
+
+    private DiagramViewKey viewStateKey() {
+        return new DiagramViewKey(source, pos);
     }
 
     private int diagramControlButtonX() {
@@ -996,6 +999,12 @@ public class WindTunnelLdlib2DiagramElement extends UIElement implements WindTun
     }
 
     private record BoundsSummary(Vector3d center, float radius) {
+    }
+
+    private record DiagramViewKey(Source source, BlockPos pos) {
+        private DiagramViewKey {
+            pos = pos.immutable();
+        }
     }
 
     private record DiagramViewState(double yaw, double pitch, SharedDiagramViewport.ViewState viewportState) {

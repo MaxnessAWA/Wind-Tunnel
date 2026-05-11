@@ -3,7 +3,11 @@ package io.github.windtunnel;
 import dev.ryanhcode.sable.api.SubLevelHelper;
 import dev.ryanhcode.sable.platform.SableEventPlatform;
 import io.github.windtunnel.compat.CreateAirfoilAttachment;
+import io.github.windtunnel.client.HologramProjectorWorldRenderer;
 import io.github.windtunnel.content.AirflowInjectorDiagramService;
+import io.github.windtunnel.client.GogglesForceVectorClient;
+import io.github.windtunnel.content.GogglesForceVectorService;
+import io.github.windtunnel.content.HologramProjectorService;
 import io.github.windtunnel.config.WindTunnelConfig;
 import io.github.windtunnel.content.WindTunnelMountService;
 import io.github.windtunnel.content.WindTunnelWindProvider;
@@ -70,6 +74,10 @@ public final class WindTunnelMod {
             modBus.addListener(ClientHooks::registerScreens);
             modBus.addListener(ClientHooks::registerRenderers);
             modBus.addListener(ClientHooks::registerAdditionalModels);
+            modBus.addListener(ClientHooks::registerShaders);
+            NeoForge.EVENT_BUS.addListener(GogglesForceVectorClient::onRenderLevelStage);
+            NeoForge.EVENT_BUS.addListener(HologramProjectorWorldRenderer::onRenderLevelStage);
+            NeoForge.EVENT_BUS.addListener(HologramProjectorWorldRenderer::onLoggingOut);
         }
 
         // ---- Phase 2: Global gameplay event handlers ----
@@ -95,6 +103,12 @@ public final class WindTunnelMod {
             // Injector diagram service: sampled on demand, but needs the same pre/post windows.
             SableEventPlatform.INSTANCE.onPhysicsTick(AirflowInjectorDiagramService::prePhysicsTick);
             SableEventPlatform.INSTANCE.onPostPhysicsTick(AirflowInjectorDiagramService::postPhysicsTick);
+            // Hologram projectors continuously sample nearby point forces for world-space arrows.
+            SableEventPlatform.INSTANCE.onPhysicsTick(HologramProjectorService::prePhysicsTick);
+            SableEventPlatform.INSTANCE.onPostPhysicsTick(HologramProjectorService::postPhysicsTick);
+            // Create goggles can show nearby physics force vectors directly in the world.
+            SableEventPlatform.INSTANCE.onPhysicsTick(GogglesForceVectorService::prePhysicsTick);
+            SableEventPlatform.INSTANCE.onPostPhysicsTick(GogglesForceVectorService::postPhysicsTick);
             mountHooksRegistered = true;
         }
 
