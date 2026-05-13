@@ -47,9 +47,7 @@ public record WindTunnelFlowField(
         /** Center of the nozzle face, offset slightly forward. */
         Vec3 nozzleCenter,
         /** Attenuation length (currently unused — uniform test section). */
-        double attenuationLength,
-        /** Force falloff exponent from config (currently unused). */
-        double forceFalloff
+        double attenuationLength
 ) {
     /**
      * Test coordinates used for depth-sampling partial blocks.
@@ -88,7 +86,7 @@ public record WindTunnelFlowField(
                 direction,
                 configuredLength,
                 baseAirspeed,
-                Math.max(WindTunnelConfig.maxAirspeed(), WindTunnelControllerBlockEntity.MAX_AIRSPEED)
+                WindTunnelConfig.maxAirspeed()
         );
     }
 
@@ -116,8 +114,7 @@ public record WindTunnelFlowField(
                 normalizedImpulse,
                 clampedAirspeed,
                 Vec3.atCenterOf(origin).add(impulse.scale(0.75D)),
-                Math.max(1.0D, openLength),
-                WindTunnelConfig.forceFalloff()
+                Math.max(1.0D, openLength)
         );
     }
 

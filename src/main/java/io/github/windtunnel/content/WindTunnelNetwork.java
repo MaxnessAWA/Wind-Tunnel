@@ -1,11 +1,13 @@
 package io.github.windtunnel.content;
 
+import io.github.windtunnel.config.WindTunnelConfig;
 import io.github.windtunnel.network.SyncWindTunnelControllerPayload;
 import java.util.ArrayDeque;
 import java.util.HashSet;
 import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.util.Mth;
 import net.minecraft.world.level.Level;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Block;
@@ -103,8 +105,16 @@ public final class WindTunnelNetwork {
         boolean hasControllerLength = false;
         boolean hasControllerAirspeed = false;
         boolean spinFanBlades = false;
-        int targetLength = WindTunnelControllerBlockEntity.DEFAULT_LENGTH;
-        double targetAirspeed = WindTunnelControllerBlockEntity.DEFAULT_AIRSPEED;
+        int targetLength = Mth.clamp(
+                WindTunnelControllerBlockEntity.DEFAULT_LENGTH,
+                1,
+                WindTunnelConfig.maxRange()
+        );
+        double targetAirspeed = Mth.clamp(
+                WindTunnelConfig.baseAirspeed(),
+                0.0D,
+                WindTunnelConfig.maxAirspeed()
+        );
 
         for (BlockPos controllerPos : network.controllers) {
             BlockState state = level.getBlockState(controllerPos);
@@ -120,8 +130,8 @@ public final class WindTunnelNetwork {
 
             BlockEntity blockEntity = level.getBlockEntity(controllerPos);
             if (blockEntity instanceof WindTunnelControllerBlockEntity controllerBlockEntity) {
-                int controllerLength = controllerBlockEntity.getTargetLength();
-                double controllerAirspeed = controllerBlockEntity.getTargetAirspeed();
+                int controllerLength = controllerBlockEntity.getConfiguredTargetLength();
+                double controllerAirspeed = controllerBlockEntity.getConfiguredTargetAirspeed();
                 // Sync to nearby chunk trackers so open GUI screens converge on one state.
                 syncController(level, controllerPos, controllerBlockEntity, state.getValue(WindTunnelControllerBlock.ENABLED));
 
@@ -152,6 +162,8 @@ public final class WindTunnelNetwork {
      */
     private static void applyTunnelState(Level level, BlockPos tunnelPos, boolean controllerActive, int targetLength, double targetAirspeed,
                                          boolean spinFanBlades) {
+        int clampedLength = Mth.clamp(targetLength, 1, WindTunnelConfig.maxRange());
+        double clampedAirspeed = Mth.clamp(targetAirspeed, 0.0D, WindTunnelConfig.maxAirspeed());
         BlockState state = level.getBlockState(tunnelPos);
         if (!(state.getBlock() instanceof WindTunnelBlock)) {
             return;
@@ -160,9 +172,9 @@ public final class WindTunnelNetwork {
         BlockEntity blockEntity = level.getBlockEntity(tunnelPos);
         boolean settingsChanged = false;
         if (blockEntity instanceof WindTunnelBlockEntity windTunnelBlockEntity) {
-            settingsChanged = !windTunnelBlockEntity.matchesControllerSettings(targetLength, targetAirspeed, spinFanBlades);
+            settingsChanged = !windTunnelBlockEntity.matchesControllerSettings(clampedLength, clampedAirspeed, spinFanBlades);
             if (settingsChanged) {
-                windTunnelBlockEntity.applyControllerSettings(targetLength, targetAirspeed, spinFanBlades);
+                windTunnelBlockEntity.applyControllerSettings(clampedLength, clampedAirspeed, spinFanBlades);
             }
         }
 
@@ -246,10 +258,12 @@ public final class WindTunnelNetwork {
                 new net.minecraft.world.level.ChunkPos(controllerPos),
                 new SyncWindTunnelControllerPayload(
                         controllerPos,
-                        controller.getTargetLength(),
-                        controller.getTargetAirspeed(),
+                        controller.getConfiguredTargetLength(),
+                        controller.getConfiguredTargetAirspeed(),
                         controller.shouldSpinFanBlades(),
-                        enabled
+                        enabled,
+                        controller.getConfiguredMaxLength(),
+                        controller.getConfiguredMaxAirspeed()
                 )
         );
     }

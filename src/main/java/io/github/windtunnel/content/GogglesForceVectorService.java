@@ -1,6 +1,5 @@
 package io.github.windtunnel.content;
 
-import com.simibubi.create.content.equipment.goggles.GogglesItem;
 import dev.ryanhcode.sable.api.SubLevelHelper;
 import dev.ryanhcode.sable.api.sublevel.ServerSubLevelContainer;
 import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
@@ -26,7 +25,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import org.joml.Vector3d;
 
 /**
- * Streams nearby Sable point-force vectors to players wearing Create goggles.
+ * Streams nearby Sable point-force vectors to players wearing Aeronautics aviator's goggles.
  */
 @SuppressWarnings("null")
 public final class GogglesForceVectorService {
@@ -63,7 +62,7 @@ public final class GogglesForceVectorService {
         for (ServerPlayer player : level.players()) {
             UUID playerId = player.getUUID();
             presentPlayers.add(playerId);
-            if (!GogglesItem.isWearingGoggles(player) || captures.containsKey(playerId)) {
+            if (!AeronauticsCompat.isWearingAviatorsGoggles(player) || captures.containsKey(playerId)) {
                 continue;
             }
 
@@ -130,7 +129,7 @@ public final class GogglesForceVectorService {
 
     private static void syncCompletedCapture(ServerLevel level, CaptureTicket ticket) {
         ServerPlayer player = level.getServer().getPlayerList().getPlayer(ticket.playerId());
-        if (player == null || player.level() != level || !GogglesItem.isWearingGoggles(player)) {
+        if (player == null || player.level() != level || !AeronauticsCompat.isWearingAviatorsGoggles(player)) {
             return;
         }
 

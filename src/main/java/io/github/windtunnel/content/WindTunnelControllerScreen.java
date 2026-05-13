@@ -1,6 +1,7 @@
 package io.github.windtunnel.content;
 
 import io.github.windtunnel.network.UpdateWindTunnelControllerPayload;
+import java.util.function.DoubleConsumer;
 import java.util.function.IntConsumer;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractSliderButton;
@@ -49,7 +50,9 @@ public class WindTunnelControllerScreen extends AbstractContainerScreen<WindTunn
 
     // ---- Optimistic local editor state ----
     private int targetLength;
-    private int targetAirspeed;
+    private double targetAirspeed;
+    private int maxLength = WindTunnelControllerBlockEntity.MAX_LENGTH;
+    private double maxAirspeed = WindTunnelControllerBlockEntity.MAX_AIRSPEED;
     private boolean enabled;
     private boolean spinFanBlades;
     private boolean suppressUpdates;
@@ -57,14 +60,14 @@ public class WindTunnelControllerScreen extends AbstractContainerScreen<WindTunn
     private int pendingSyncTicks;
     // Last-sent values to avoid redundant packets
     private int lastSentLength;
-    private int lastSentAirspeed;
+    private double lastSentAirspeed;
     private boolean lastSentEnabled;
     private boolean lastSentSpinFanBlades;
     // ---- Widgets ----
     private NumericSlider lengthSlider;
-    private NumericSlider airspeedSlider;
+    private SharedDecimalControls.DecimalSlider airspeedSlider;
     private NumericEditBox lengthField;
-    private NumericEditBox airspeedField;
+    private SharedDecimalControls.DecimalEditBox airspeedField;
     private Button enabledButton;
     private Button spinFanButton;
 
@@ -113,7 +116,7 @@ public class WindTunnelControllerScreen extends AbstractContainerScreen<WindTunn
                 SLIDER_WIDTH,
                 Component.translatable("block.windtunnel.wind_tunnel_controller.target_length"),
                 1,
-                WindTunnelControllerBlockEntity.MAX_LENGTH,
+                maxLength,
                 targetLength,
                 value -> {
                     targetLength = value;
@@ -125,18 +128,20 @@ public class WindTunnelControllerScreen extends AbstractContainerScreen<WindTunn
         ));
 
         // Airspeed slider (0-128)
-        airspeedSlider = addRenderableWidget(new NumericSlider(
+        airspeedSlider = addRenderableWidget(new SharedDecimalControls.DecimalSlider(
+                font,
+                0x404040,
                 left + 12,
                 top + AIRSPEED_ROW_Y,
                 SLIDER_WIDTH,
                 Component.translatable("block.windtunnel.wind_tunnel_controller.target_airspeed"),
-                0,
-                WindTunnelControllerBlockEntity.MAX_AIRSPEED,
+                0.0D,
+                maxAirspeed,
                 targetAirspeed,
-                value -> {
+                (DoubleConsumer) value -> {
                     targetAirspeed = value;
                     if (airspeedField != null) {
-                        airspeedField.syncValue(value);
+                        SharedDecimalControls.syncField(airspeedField, value);
                     }
                 },
                 WindTunnelControllerScreen.this::sendSettings
@@ -148,7 +153,7 @@ public class WindTunnelControllerScreen extends AbstractContainerScreen<WindTunn
                 top + LENGTH_ROW_Y,
                 targetLength,
                 1,
-                WindTunnelControllerBlockEntity.MAX_LENGTH,
+                maxLength,
                 value -> {
                     targetLength = value;
                     if (lengthSlider != null) {
@@ -159,26 +164,30 @@ public class WindTunnelControllerScreen extends AbstractContainerScreen<WindTunn
         ));
 
         // Airspeed text field (compact, next to slider)
-        airspeedField = addRenderableWidget(new NumericEditBox(
+        airspeedField = addRenderableWidget(new SharedDecimalControls.DecimalEditBox(
+                font,
                 left + 142,
                 top + AIRSPEED_ROW_Y,
+                FIELD_WIDTH,
+                20,
                 targetAirspeed,
-                0,
-                WindTunnelControllerBlockEntity.MAX_AIRSPEED,
-                value -> {
+                0.0D,
+                maxAirspeed,
+                (DoubleConsumer) value -> {
                     targetAirspeed = value;
                     if (airspeedSlider != null) {
                         airspeedSlider.setExternalValue(value);
                     }
                     sendSettings();
-                }
+                },
+                () -> suppressUpdates
         ));
 
         // Initialize widget labels
         updateEnabledButton();
         updateFanSpinButton();
         lengthField.syncValue(targetLength);
-        airspeedField.syncValue(targetAirspeed);
+        SharedDecimalControls.syncField(airspeedField, targetAirspeed);
     }
 
     @Override
@@ -242,15 +251,17 @@ public class WindTunnelControllerScreen extends AbstractContainerScreen<WindTunn
 
         boolean blockEnabled = minecraft.level.getBlockState(menu.getControllerPos()).getValue(WindTunnelControllerBlock.ENABLED);
         int blockLength = controller.getTargetLength();
-        int blockAirspeed = controller.getTargetAirspeed();
+        double blockAirspeed = controller.getTargetAirspeed();
         boolean blockSpinFanBlades = controller.shouldSpinFanBlades();
+        int blockMaxLength = controller.getConfiguredMaxLength();
+        double blockMaxAirspeed = controller.getConfiguredMaxAirspeed();
 
         if (waitingForServerState) {
             // After the client sends a change, give the server a few ticks to echo the accepted
             // state back before allowing passive world reads to overwrite the local buffer.
             boolean serverCaughtUp = blockEnabled == lastSentEnabled
                     && blockLength == lastSentLength
-                    && blockAirspeed == lastSentAirspeed
+                    && sameValue(blockAirspeed, lastSentAirspeed)
                     && blockSpinFanBlades == lastSentSpinFanBlades;
             if (serverCaughtUp) {
                 waitingForServerState = false;
@@ -264,8 +275,10 @@ public class WindTunnelControllerScreen extends AbstractContainerScreen<WindTunn
 
         if (blockEnabled == enabled
                 && blockLength == targetLength
-                && blockAirspeed == targetAirspeed
-                && blockSpinFanBlades == spinFanBlades) {
+                && sameValue(blockAirspeed, targetAirspeed)
+                && blockSpinFanBlades == spinFanBlades
+                && blockMaxLength == maxLength
+                && sameValue(blockMaxAirspeed, maxAirspeed)) {
             return;
         }
 
@@ -273,6 +286,8 @@ public class WindTunnelControllerScreen extends AbstractContainerScreen<WindTunn
         enabled = blockEnabled;
         targetLength = blockLength;
         targetAirspeed = blockAirspeed;
+        maxLength = blockMaxLength;
+        maxAirspeed = blockMaxAirspeed;
         spinFanBlades = blockSpinFanBlades;
         if (enabledButton != null) {
             updateEnabledButton();
@@ -290,7 +305,7 @@ public class WindTunnelControllerScreen extends AbstractContainerScreen<WindTunn
             lengthField.syncValue(targetLength);
         }
         if (airspeedField != null) {
-            airspeedField.syncValue(targetAirspeed);
+            SharedDecimalControls.syncField(airspeedField, targetAirspeed);
         }
         suppressUpdates = false;
     }
@@ -331,6 +346,10 @@ public class WindTunnelControllerScreen extends AbstractContainerScreen<WindTunn
         if (!text.equals(field.getValue())) {
             field.setValue(text);
         }
+    }
+
+    private static boolean sameValue(double first, double second) {
+        return Math.abs(first - second) <= 1.0E-4D;
     }
 
     private void updateEnabledButton() {

@@ -18,7 +18,6 @@ import dev.ryanhcode.sable.api.sublevel.ClientSubLevelContainer;
 import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
 import dev.ryanhcode.sable.companion.math.BoundingBox3ic;
 import dev.ryanhcode.sable.companion.math.Pose3dc;
-import dev.ryanhcode.sable.mixinterface.BlockEntityRenderDispatcherExtension;
 import dev.ryanhcode.sable.sublevel.ClientSubLevel;
 import dev.ryanhcode.sable.sublevel.render.SubLevelRenderData;
 import dev.ryanhcode.sable.sublevel.render.dispatcher.SubLevelRenderDispatcher;
@@ -39,14 +38,15 @@ import net.minecraft.client.renderer.blockentity.BlockEntityRenderDispatcher;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
+import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.phys.Vec3;
-
 import org.jetbrains.annotations.NotNull;
 import org.joml.Matrix4f;
+import org.joml.Matrix4fStack;
 import org.joml.Quaterniondc;
 import org.joml.Quaternionf;
 import org.joml.Vector3d;
@@ -167,7 +167,7 @@ public class HologramProjectorRenderer implements BlockEntityRenderer<HologramPr
                 renderType.clearRenderState();
             }
             applyHologramRenderState();
-            renderMiniatureBlockEntities(subLevels, transform, partialTick, poseStack);
+            renderMiniatureBlockEntities(subLevels, transform, partialTick, poseStack, baseModelView);
         } finally {
             RenderSystem.depthMask(previousDepthMask);
             RenderSystem.setShaderColor(previousColor[0], previousColor[1], previousColor[2], previousColor[3]);
@@ -316,97 +316,74 @@ public class HologramProjectorRenderer implements BlockEntityRenderer<HologramPr
     }
 
     private static void renderMiniatureBlockEntities(List<ClientSubLevel> subLevels, HologramTransform transform,
-                                                     float partialTick, PoseStack poseStack) {
+                                                     float partialTick, PoseStack poseStack, Matrix4f baseModelView) {
         Minecraft minecraft = Minecraft.getInstance();
-        BlockEntityRenderDispatcher blockEntityRenderDispatcher = minecraft.getBlockEntityRenderDispatcher();
-        BlockEntityRenderDispatcherExtension dispatcherExtension =
-                (BlockEntityRenderDispatcherExtension) blockEntityRenderDispatcher;
-        Matrix4f subLevelTransform = new Matrix4f();
-        Vector3d chunkOffset = new Vector3d();
-        Vec3 camera = minecraft.gameRenderer.getMainCamera().getPosition();
         MultiBufferSource.BufferSource hologramBufferSource = minecraft.renderBuffers().bufferSource();
         MultiBufferSource tintedBufferSource = hologramBlockEntityBufferSource(hologramBufferSource);
+        Matrix4fStack modelViewStack = RenderSystem.getModelViewStack();
 
+        modelViewStack.pushMatrix();
         poseStack.pushPose();
         poseStack.translate(DISPLAY_CENTER_X, DISPLAY_CENTER_Y, DISPLAY_CENTER_Z);
         poseStack.scale((float) transform.scale(), (float) transform.scale(), (float) transform.scale());
         poseStack.translate(-transform.center().x(), -transform.center().y(), -transform.center().z());
         try {
+            modelViewStack.identity();
+            modelViewStack.mul(baseModelView);
+            RenderSystem.applyModelViewMatrix();
             for (ClientSubLevel subLevel : subLevels) {
                 SubLevelRenderData data = subLevel.getRenderData();
                 if (data == null) {
                     continue;
                 }
 
-                subLevel.renderPose().rotationPoint().negate(chunkOffset.zero());
-                fillSubLevelWorldTransform(subLevel, subLevelTransform);
-                dispatcherExtension.sable$setCameraPosition(new Vec3(
-                        camera.x - chunkOffset.x(),
-                        camera.y - chunkOffset.y(),
-                        camera.z - chunkOffset.z()
-                ));
-
-                poseStack.pushPose();
-                try {
-                    poseStack.mulPose(subLevelTransform);
-                    if (data instanceof VanillaChunkedSubLevelRenderData chunkedRenderData) {
-                        for (SectionRenderDispatcher.RenderSection renderSection : chunkedRenderData.allRenderSections()) {
-                            List<BlockEntity> blockEntities = renderSection.getCompiled().getRenderableBlockEntities();
-                            if (!blockEntities.isEmpty()) {
-                                renderBlockEntities(blockEntities, poseStack, tintedBufferSource, partialTick,
-                                        -chunkOffset.x(), -chunkOffset.y(), -chunkOffset.z());
-                            }
-                        }
-                    } else if (data instanceof VanillaSingleSubLevelRenderData singleRenderData) {
-                        BlockEntity blockEntity = singleRenderData.getRenderBlockEntity();
-                        if (blockEntity != null) {
-                            renderSingleBlockEntity(blockEntity, poseStack, tintedBufferSource, partialTick,
-                                    -chunkOffset.x(), -chunkOffset.y(), -chunkOffset.z());
+                if (data instanceof VanillaChunkedSubLevelRenderData chunkedRenderData) {
+                    for (SectionRenderDispatcher.RenderSection renderSection : chunkedRenderData.allRenderSections()) {
+                        List<BlockEntity> blockEntities = renderSection.getCompiled().getRenderableBlockEntities();
+                        if (!blockEntities.isEmpty()) {
+                            renderBlockEntities(blockEntities, subLevel, poseStack, tintedBufferSource, partialTick);
                         }
                     }
-                } finally {
-                    poseStack.popPose();
+                } else if (data instanceof VanillaSingleSubLevelRenderData singleRenderData) {
+                    BlockEntity blockEntity = singleRenderData.getRenderBlockEntity();
+                    if (blockEntity != null) {
+                        renderSingleBlockEntity(blockEntity, subLevel, poseStack, tintedBufferSource, partialTick);
+                    }
                 }
             }
         } finally {
-            dispatcherExtension.sable$setCameraPosition(null);
             hologramBufferSource.endBatch();
             poseStack.popPose();
+            modelViewStack.popMatrix();
+            RenderSystem.applyModelViewMatrix();
         }
-    }
-
-    private static void fillSubLevelWorldTransform(ClientSubLevel subLevel, Matrix4f dest) {
-        Pose3dc renderPose = subLevel.renderPose();
-        Vector3dc renderPos = renderPose.position();
-        Quaterniondc renderRot = renderPose.orientation();
-        Vector3dc renderScale = renderPose.scale();
-
-        dest.identity()
-                .translate((float) renderPos.x(), (float) renderPos.y(), (float) renderPos.z())
-                .rotate(new Quaternionf(renderRot))
-                .scale((float) renderScale.x(), (float) renderScale.y(), (float) renderScale.z());
     }
 
     private static MultiBufferSource hologramBlockEntityBufferSource(MultiBufferSource.BufferSource delegate) {
         return renderType -> new HologramBlockEntityVertexConsumer(delegate.getBuffer(renderType));
     }
 
-    private static void renderBlockEntities(List<BlockEntity> blockEntities, PoseStack poseStack, MultiBufferSource bufferSource,
-                                            float partialTick, double cameraX, double cameraY, double cameraZ) {
+    private static void renderBlockEntities(List<BlockEntity> blockEntities, ClientSubLevel subLevel,
+                                            PoseStack poseStack, MultiBufferSource bufferSource, float partialTick) {
         for (BlockEntity blockEntity : blockEntities) {
-            renderSingleBlockEntity(blockEntity, poseStack, bufferSource, partialTick, cameraX, cameraY, cameraZ);
+            renderSingleBlockEntity(blockEntity, subLevel, poseStack, bufferSource, partialTick);
         }
     }
 
     @SuppressWarnings("null")
-    private static void renderSingleBlockEntity(BlockEntity blockEntity, PoseStack poseStack, MultiBufferSource bufferSource,
-                                                float partialTick, double cameraX, double cameraY, double cameraZ) {
+    private static void renderSingleBlockEntity(BlockEntity blockEntity, ClientSubLevel subLevel,
+                                                PoseStack poseStack, MultiBufferSource bufferSource, float partialTick) {
         BlockEntityRenderDispatcher blockEntityRenderDispatcher = Minecraft.getInstance().getBlockEntityRenderDispatcher();
+        Pose3dc renderPose = subLevel.renderPose();
         BlockPos pos = blockEntity.getBlockPos();
+        Vector3d worldPos = renderPose.transformPosition(new Vector3d(pos.getX(), pos.getY(), pos.getZ()), new Vector3d());
+        int packedLight = blockEntity.getLevel() == null ? 0 : LevelRenderer.getLightColor(blockEntity.getLevel(), pos);
         poseStack.pushPose();
         try {
-            poseStack.translate((double) pos.getX() - cameraX, (double) pos.getY() - cameraY, (double) pos.getZ() - cameraZ);
-            blockEntityRenderDispatcher.render(blockEntity, partialTick, poseStack, bufferSource);
+            poseStack.translate(worldPos.x(), worldPos.y(), worldPos.z());
+            poseStack.mulPose(new Quaternionf(renderPose.orientation()));
+            poseStack.scale((float) renderPose.scale().x(), (float) renderPose.scale().y(), (float) renderPose.scale().z());
+            blockEntityRenderDispatcher.renderItem(blockEntity, poseStack, bufferSource, packedLight, OverlayTexture.NO_OVERLAY);
         } finally {
             poseStack.popPose();
         }

@@ -6,7 +6,6 @@ import io.github.windtunnel.content.WindTunnelControllerBlockEntity;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
@@ -17,26 +16,47 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
  * This keeps nearby clients in sync even if they are not the player who edited the controller.
  */
 @SuppressWarnings("null")
-public record SyncWindTunnelControllerPayload(BlockPos pos, int targetLength, int targetAirspeed, boolean spinFanBlades, boolean enabled) implements CustomPacketPayload {
+public record SyncWindTunnelControllerPayload(
+        BlockPos pos,
+        int targetLength,
+        double targetAirspeed,
+        boolean spinFanBlades,
+        boolean enabled,
+        int maxLength,
+        double maxAirspeed
+) implements CustomPacketPayload {
     public static final Type<SyncWindTunnelControllerPayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(WindTunnelMod.MOD_ID, "sync_controller"));
-    public static final StreamCodec<RegistryFriendlyByteBuf, SyncWindTunnelControllerPayload> STREAM_CODEC = StreamCodec.composite(
-            BlockPos.STREAM_CODEC,
-            SyncWindTunnelControllerPayload::pos,
-            ByteBufCodecs.VAR_INT,
-            SyncWindTunnelControllerPayload::targetLength,
-            ByteBufCodecs.VAR_INT,
-            SyncWindTunnelControllerPayload::targetAirspeed,
-            ByteBufCodecs.BOOL,
-            SyncWindTunnelControllerPayload::spinFanBlades,
-            ByteBufCodecs.BOOL,
-            SyncWindTunnelControllerPayload::enabled,
-            SyncWindTunnelControllerPayload::new
+    public static final StreamCodec<RegistryFriendlyByteBuf, SyncWindTunnelControllerPayload> STREAM_CODEC = StreamCodec.of(
+            SyncWindTunnelControllerPayload::encode,
+            SyncWindTunnelControllerPayload::decode
     );
 
     @Override
     public Type<? extends CustomPacketPayload> type() {
         return TYPE;
+    }
+
+    private static SyncWindTunnelControllerPayload decode(RegistryFriendlyByteBuf buffer) {
+        return new SyncWindTunnelControllerPayload(
+                BlockPos.STREAM_CODEC.decode(buffer),
+                buffer.readVarInt(),
+                buffer.readDouble(),
+                buffer.readBoolean(),
+                buffer.readBoolean(),
+                buffer.readVarInt(),
+                buffer.readDouble()
+        );
+    }
+
+    private static void encode(RegistryFriendlyByteBuf buffer, SyncWindTunnelControllerPayload payload) {
+        BlockPos.STREAM_CODEC.encode(buffer, payload.pos());
+        buffer.writeVarInt(payload.targetLength());
+        buffer.writeDouble(payload.targetAirspeed());
+        buffer.writeBoolean(payload.spinFanBlades());
+        buffer.writeBoolean(payload.enabled());
+        buffer.writeVarInt(payload.maxLength());
+        buffer.writeDouble(payload.maxAirspeed());
     }
 
     public static void handle(SyncWindTunnelControllerPayload payload, IPayloadContext context) {
@@ -49,6 +69,7 @@ public record SyncWindTunnelControllerPayload(BlockPos pos, int targetLength, in
             return;
         }
 
+        controller.applyClientConfiguredLimits(payload.maxLength(), payload.maxAirspeed());
         controller.applySettings(payload.targetLength(), payload.targetAirspeed(), payload.spinFanBlades());
         var state = minecraft.level.getBlockState(payload.pos());
         if (state.getBlock() instanceof WindTunnelControllerBlock && state.getValue(WindTunnelControllerBlock.ENABLED) != payload.enabled()) {

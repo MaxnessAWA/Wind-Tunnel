@@ -3,27 +3,21 @@ package io.github.windtunnel.config;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 /**
- * Server-side tuning knobs for the wind tunnel flow field.
- * <p>
- * These values are intentionally narrow in scope: they shape airflow behaviour but do not
- * control controller UI limits, which are gameplay rules defined in the controller block entity.
- * <p>
- * Configurable parameters:
- * <ul>
- * <li><b>maxRange</b> — Maximum number of open blocks scanned in front of a wind tunnel (1-256).</li>
- * <li><b>baseAirspeed</b> — Base local air velocity in blocks/second (0.1-128.0).</li>
- * <li><b>forceFalloff</b> — How much the push weakens from nozzle to end of stream (0.0-0.95).</li>
- * <li><b>crossSectionRadius</b> — Half-width on the two axes perpendicular to flow (0.1-3.0).</li>
- * <li><b>maxAirspeed</b> — Upper clamp for injected air velocity (0.1-128.0).</li>
- * </ul>
+ * Server-side tuning knobs for wind tunnel airflow and optional quadratic sail aerodynamics.
  */
 public final class WindTunnelConfig {
     public static final ModConfigSpec SPEC;
+
     private static final ModConfigSpec.IntValue MAX_RANGE;
     private static final ModConfigSpec.DoubleValue BASE_AIRSPEED;
-    private static final ModConfigSpec.DoubleValue FORCE_FALLOFF;
     private static final ModConfigSpec.DoubleValue CROSS_SECTION_RADIUS;
     private static final ModConfigSpec.DoubleValue MAX_AIRSPEED;
+    private static final ModConfigSpec.BooleanValue QUADRATIC_SAIL_AERODYNAMICS;
+    private static final ModConfigSpec.DoubleValue NORMAL_DRAG_SOFT_CAP;
+    private static final ModConfigSpec.DoubleValue LIFT_SOFT_CAP;
+    private static final ModConfigSpec.DoubleValue LIFT_TUNING;
+    private static final ModConfigSpec.DoubleValue PARALLEL_DRAG_TUNING;
+    private static final ModConfigSpec.DoubleValue DIRECTIONLESS_DRAG_TUNING;
 
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
@@ -32,15 +26,11 @@ public final class WindTunnelConfig {
 
         MAX_RANGE = builder
                 .comment("Maximum number of open blocks scanned in front of a wind tunnel.")
-                .defineInRange("maxRange", 16, 1, 256);
+                .defineInRange("maxRange", 256, 1, 256);
 
         BASE_AIRSPEED = builder
                 .comment("Base local air velocity injected by the tunnel, in blocks-per-second.")
-                .defineInRange("baseAirspeed", 12.0D, 0.1D, 128.0D);
-
-        FORCE_FALLOFF = builder
-                .comment("How much the push weakens from the nozzle to the end of the stream.")
-                .defineInRange("forceFalloff", 0.65D, 0.0D, 0.95D);
+                .defineInRange("baseAirspeed", 12.0D, 0.1D, 256.0D);
 
         CROSS_SECTION_RADIUS = builder
                 .comment("Half-width of the tunnel effect on the two axes perpendicular to the flow.")
@@ -48,7 +38,31 @@ public final class WindTunnelConfig {
 
         MAX_AIRSPEED = builder
                 .comment("Upper clamp for the injected local air velocity, in blocks-per-second.")
-                .defineInRange("maxAirspeed", 64.0D, 0.1D, 128.0D);
+                .defineInRange("maxAirspeed", 128.0D, 0.1D, 256.0D);
+
+        QUADRATIC_SAIL_AERODYNAMICS = builder
+                .comment("When true, Create sails and Simulated symmetric sails use velocity-squared lift/drag scaling instead of linear velocity scaling.")
+                .define("quadraticSailAerodynamics", false);
+
+        NORMAL_DRAG_SOFT_CAP = builder
+                .comment("Active when quadraticSailAerodynamics is enabled")
+                .defineInRange("normalDragSoftCap", 50.0D, 20.0D, 256.0D);
+
+        LIFT_SOFT_CAP = builder
+                .comment("Active when quadraticSailAerodynamics is enabled")
+                .defineInRange("liftSoftCap", 40.0D, 20.0D, 256.0D);
+
+        LIFT_TUNING = builder
+                .comment("Active when quadraticSailAerodynamics is enabled")
+                .defineInRange("liftTuning", 0.16D, 0.1D, 1.0D);
+
+        PARALLEL_DRAG_TUNING = builder
+                .comment("Active when quadraticSailAerodynamics is enabled")
+                .defineInRange("parallelDragTuning", 0.35D, 0.1D, 1.0D);
+
+        DIRECTIONLESS_DRAG_TUNING = builder
+                .comment("Active when quadraticSailAerodynamics is enabled")
+                .defineInRange("directionlessDragTuning", 0.1D, 0.02D, 1.0D);
 
         builder.pop();
         SPEC = builder.build();
@@ -57,30 +71,43 @@ public final class WindTunnelConfig {
     private WindTunnelConfig() {
     }
 
-    // ---- Config accessors ----
-
-    /** Maximum forward scan range in blocks (1-256). */
     public static int maxRange() {
         return MAX_RANGE.get();
     }
 
-    /** Base airspeed in blocks/second (0.1-128.0). */
     public static double baseAirspeed() {
         return BASE_AIRSPEED.get();
     }
 
-    /** Force falloff exponent (0.0-0.95). */
-    public static double forceFalloff() {
-        return FORCE_FALLOFF.get();
-    }
-
-    /** Cross-section radius (0.1-3.0). */
     public static double crossSectionRadius() {
         return CROSS_SECTION_RADIUS.get();
     }
 
-    /** Maximum airspeed clamp (0.1-128.0). */
     public static double maxAirspeed() {
         return MAX_AIRSPEED.get();
+    }
+
+    public static boolean quadraticSailAerodynamics() {
+        return QUADRATIC_SAIL_AERODYNAMICS.get();
+    }
+
+    public static double normalDragSoftCap() {
+        return NORMAL_DRAG_SOFT_CAP.get();
+    }
+
+    public static double liftSoftCap() {
+        return LIFT_SOFT_CAP.get();
+    }
+
+    public static double liftTuning() {
+        return LIFT_TUNING.get();
+    }
+
+    public static double parallelDragTuning() {
+        return PARALLEL_DRAG_TUNING.get();
+    }
+
+    public static double directionlessDragTuning() {
+        return DIRECTIONLESS_DRAG_TUNING.get();
     }
 }

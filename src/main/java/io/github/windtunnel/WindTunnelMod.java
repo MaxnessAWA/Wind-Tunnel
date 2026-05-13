@@ -106,7 +106,7 @@ public final class WindTunnelMod {
             // Hologram projectors continuously sample nearby point forces for world-space arrows.
             SableEventPlatform.INSTANCE.onPhysicsTick(HologramProjectorService::prePhysicsTick);
             SableEventPlatform.INSTANCE.onPostPhysicsTick(HologramProjectorService::postPhysicsTick);
-            // Create goggles can show nearby physics force vectors directly in the world.
+            // Aeronautics aviator's goggles can show nearby physics force vectors directly in the world.
             SableEventPlatform.INSTANCE.onPhysicsTick(GogglesForceVectorService::prePhysicsTick);
             SableEventPlatform.INSTANCE.onPostPhysicsTick(GogglesForceVectorService::postPhysicsTick);
             mountHooksRegistered = true;

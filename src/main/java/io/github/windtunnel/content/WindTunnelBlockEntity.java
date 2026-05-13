@@ -4,6 +4,7 @@ import com.simibubi.create.content.kinetics.fan.AirCurrent;
 import com.simibubi.create.content.kinetics.fan.AirFlowParticleData;
 import com.simibubi.create.content.kinetics.fan.IAirCurrentSource;
 import com.simibubi.create.foundation.blockEntity.SyncedBlockEntity;
+import io.github.windtunnel.config.WindTunnelConfig;
 import io.github.windtunnel.registry.WindTunnelBlockEntities;
 import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
@@ -37,8 +38,16 @@ public class WindTunnelBlockEntity extends SyncedBlockEntity implements IAirCurr
     private static final float MAX_PARTICLE_SPAWN_CHANCE = 0.85F;
 
     // ---- Controller-pushed settings ----
-    private int controllerLength = WindTunnelControllerBlockEntity.DEFAULT_LENGTH;
-    private double controllerAirspeed = WindTunnelControllerBlockEntity.DEFAULT_AIRSPEED;
+    private int controllerLength = Mth.clamp(
+            WindTunnelControllerBlockEntity.DEFAULT_LENGTH,
+            1,
+            WindTunnelConfig.maxRange()
+    );
+    private double controllerAirspeed = Mth.clamp(
+            WindTunnelControllerBlockEntity.DEFAULT_AIRSPEED,
+            0.0D,
+            WindTunnelConfig.maxAirspeed()
+    );
     private boolean controllerSpinFanBlades = true;
 
     // ---- Create fan integration ----
@@ -127,8 +136,8 @@ public class WindTunnelBlockEntity extends SyncedBlockEntity implements IAirCurr
      * Fan spin is a pure render toggle and does NOT force the expensive airflow volume rebuild.
      */
     public void applyControllerSettings(int controllerLength, double controllerAirspeed, boolean controllerSpinFanBlades) {
-        int clampedLength = Mth.clamp(controllerLength, 1, WindTunnelControllerBlockEntity.MAX_LENGTH);
-        double clampedAirspeed = Mth.clamp(controllerAirspeed, 0.0D, WindTunnelControllerBlockEntity.MAX_AIRSPEED);
+        int clampedLength = Mth.clamp(controllerLength, 1, WindTunnelConfig.maxRange());
+        double clampedAirspeed = Mth.clamp(controllerAirspeed, 0.0D, WindTunnelConfig.maxAirspeed());
         boolean airflowChanged = this.controllerLength != clampedLength
                 || Double.compare(this.controllerAirspeed, clampedAirspeed) != 0;
         boolean visualChanged = this.controllerSpinFanBlades != controllerSpinFanBlades;
@@ -205,10 +214,10 @@ public class WindTunnelBlockEntity extends SyncedBlockEntity implements IAirCurr
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
         if (tag.contains(CONTROLLER_LENGTH_KEY)) {
-            controllerLength = Mth.clamp(tag.getInt(CONTROLLER_LENGTH_KEY), 1, WindTunnelControllerBlockEntity.MAX_LENGTH);
+            controllerLength = Mth.clamp(tag.getInt(CONTROLLER_LENGTH_KEY), 1, WindTunnelConfig.maxRange());
         }
         if (tag.contains(CONTROLLER_AIRSPEED_KEY)) {
-            controllerAirspeed = Mth.clamp(tag.getDouble(CONTROLLER_AIRSPEED_KEY), 0.0D, WindTunnelControllerBlockEntity.MAX_AIRSPEED);
+            controllerAirspeed = Mth.clamp(tag.getDouble(CONTROLLER_AIRSPEED_KEY), 0.0D, WindTunnelConfig.maxAirspeed());
         }
         if (tag.contains(CONTROLLER_SPIN_FAN_BLADES_KEY)) {
             controllerSpinFanBlades = tag.getBoolean(CONTROLLER_SPIN_FAN_BLADES_KEY);
@@ -270,7 +279,7 @@ public class WindTunnelBlockEntity extends SyncedBlockEntity implements IAirCurr
             return;
         }
 
-        float normalizedSpeed = (float) Mth.clamp(controllerAirspeed / WindTunnelControllerBlockEntity.MAX_AIRSPEED, 0.0D, 1.0D);
+        float normalizedSpeed = normalizedConfiguredAirspeed();
         float spawnChance = Mth.lerp(normalizedSpeed, MIN_PARTICLE_SPAWN_CHANCE, MAX_PARTICLE_SPAWN_CHANCE);
         if (level.random.nextFloat() > spawnChance) {
             return;
@@ -343,7 +352,7 @@ public class WindTunnelBlockEntity extends SyncedBlockEntity implements IAirCurr
         // Give particles a little extra visual reach at higher speed so the stream feels less
         // abruptly clipped than the strict physics volume.
         float baseLength = (float) field.length();
-        float normalizedSpeed = (float) Mth.clamp(controllerAirspeed / WindTunnelControllerBlockEntity.MAX_AIRSPEED, 0.0D, 1.0D);
+        float normalizedSpeed = normalizedConfiguredAirspeed();
         float speedBonus = Math.max(1.0F, baseLength * 0.45F) * normalizedSpeed;
         return baseLength + speedBonus;
     }
@@ -366,5 +375,13 @@ public class WindTunnelBlockEntity extends SyncedBlockEntity implements IAirCurr
 
     private void markAirCurrentDirty() {
         airCurrentDirty = true;
+    }
+
+    private float normalizedConfiguredAirspeed() {
+        double maxAirspeed = WindTunnelConfig.maxAirspeed();
+        if (maxAirspeed <= 1.0E-8D) {
+            return 0.0F;
+        }
+        return (float) Mth.clamp(controllerAirspeed / maxAirspeed, 0.0D, 1.0D);
     }
 }

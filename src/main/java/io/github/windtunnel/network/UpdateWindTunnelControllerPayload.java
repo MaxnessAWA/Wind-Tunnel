@@ -7,7 +7,6 @@ import io.github.windtunnel.content.WindTunnelControllerMenu;
 import io.github.windtunnel.content.WindTunnelNetwork;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
@@ -20,26 +19,35 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
  * controller block entity.
  */
 @SuppressWarnings("null")
-public record UpdateWindTunnelControllerPayload(BlockPos pos, int targetLength, int targetAirspeed, boolean spinFanBlades, boolean enabled) implements CustomPacketPayload {
+public record UpdateWindTunnelControllerPayload(BlockPos pos, int targetLength, double targetAirspeed, boolean spinFanBlades, boolean enabled) implements CustomPacketPayload {
     public static final Type<UpdateWindTunnelControllerPayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(WindTunnelMod.MOD_ID, "update_controller"));
-    public static final StreamCodec<RegistryFriendlyByteBuf, UpdateWindTunnelControllerPayload> STREAM_CODEC = StreamCodec.composite(
-            BlockPos.STREAM_CODEC,
-            UpdateWindTunnelControllerPayload::pos,
-            ByteBufCodecs.VAR_INT,
-            UpdateWindTunnelControllerPayload::targetLength,
-            ByteBufCodecs.VAR_INT,
-            UpdateWindTunnelControllerPayload::targetAirspeed,
-            ByteBufCodecs.BOOL,
-            UpdateWindTunnelControllerPayload::spinFanBlades,
-            ByteBufCodecs.BOOL,
-            UpdateWindTunnelControllerPayload::enabled,
-            UpdateWindTunnelControllerPayload::new
+    public static final StreamCodec<RegistryFriendlyByteBuf, UpdateWindTunnelControllerPayload> STREAM_CODEC = StreamCodec.of(
+            UpdateWindTunnelControllerPayload::encode,
+            UpdateWindTunnelControllerPayload::decode
     );
 
     @Override
     public Type<? extends CustomPacketPayload> type() {
         return TYPE;
+    }
+
+    private static UpdateWindTunnelControllerPayload decode(RegistryFriendlyByteBuf buffer) {
+        return new UpdateWindTunnelControllerPayload(
+                BlockPos.STREAM_CODEC.decode(buffer),
+                buffer.readVarInt(),
+                buffer.readDouble(),
+                buffer.readBoolean(),
+                buffer.readBoolean()
+        );
+    }
+
+    private static void encode(RegistryFriendlyByteBuf buffer, UpdateWindTunnelControllerPayload payload) {
+        BlockPos.STREAM_CODEC.encode(buffer, payload.pos());
+        buffer.writeVarInt(payload.targetLength());
+        buffer.writeDouble(payload.targetAirspeed());
+        buffer.writeBoolean(payload.spinFanBlades());
+        buffer.writeBoolean(payload.enabled());
     }
 
     public static void handle(UpdateWindTunnelControllerPayload payload, IPayloadContext context) {

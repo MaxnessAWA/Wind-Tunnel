@@ -24,8 +24,9 @@ public class HologramProjectorBlock extends BaseEntityBlock {
     public static final MapCodec<HologramProjectorBlock> CODEC = simpleCodec(HologramProjectorBlock::new);
     @SuppressWarnings("null")
     private static final VoxelShape SHAPE = Shapes.or(
-            box(1.0D, 0.0D, 1.0D, 15.0D, 3.0D, 15.0D),
-            box(4.0D, 3.0D, 4.0D, 12.0D, 6.0D, 12.0D)
+            box(0.0D, 0.0D, 0.0D, 16.0D, 1.0D, 16.0D),
+            box(3.0D, 1.0D, 3.0D, 13.0D, 2.0D, 13.0D),
+            box(6.0D, 2.0D, 6.0D, 10.0D, 3.0D, 10.0D)
     );
 
     public HologramProjectorBlock(BlockBehaviour.Properties properties) {

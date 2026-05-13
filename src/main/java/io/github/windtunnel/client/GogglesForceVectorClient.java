@@ -4,10 +4,10 @@ import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexFormat;
-import com.simibubi.create.content.equipment.goggles.GogglesItem;
 import dev.ryanhcode.sable.api.physics.force.ForceGroup;
 import dev.ryanhcode.sable.api.physics.force.ForceGroups;
 import io.github.windtunnel.content.HologramForceArrow;
+import io.github.windtunnel.content.AeronauticsCompat;
 import java.util.List;
 import java.util.OptionalDouble;
 import net.minecraft.client.Camera;
@@ -23,7 +23,7 @@ import org.joml.Vector3d;
 import org.joml.Vector3dc;
 
 /**
- * Client cache and world-space renderer for force vectors visible through Create goggles.
+ * Client cache and world-space renderer for force vectors visible through Aeronautics aviator's goggles.
  */
 public final class GogglesForceVectorClient {
     private static final int EXPIRE_AFTER_TICKS = 10;
@@ -40,10 +40,22 @@ public final class GogglesForceVectorClient {
     private GogglesForceVectorClient() {
     }
 
+    public static void clear() {
+        arrows = List.of();
+        lastUpdateGameTime = Long.MIN_VALUE;
+    }
+
+    @SuppressWarnings("null")
     public static void handlePayload(List<HologramForceArrow> updatedArrows) {
         Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level == null
+                || minecraft.player == null
+                || !AeronauticsCompat.isWearingAviatorsGoggles(minecraft.player)) {
+            clear();
+            return;
+        }
         arrows = List.copyOf(updatedArrows);
-        lastUpdateGameTime = minecraft.level == null ? Long.MIN_VALUE : minecraft.level.getGameTime();
+        lastUpdateGameTime = minecraft.level.getGameTime();
     }
 
     @SuppressWarnings("null")
@@ -56,9 +68,12 @@ public final class GogglesForceVectorClient {
         if (minecraft.level == null || minecraft.player == null || arrows.isEmpty()) {
             return;
         }
-        if (!GogglesItem.isWearingGoggles(minecraft.player)
-                || (minecraft.level != null 
-                    && minecraft.level.getGameTime() - lastUpdateGameTime > EXPIRE_AFTER_TICKS)) {
+        if (!AeronauticsCompat.isWearingAviatorsGoggles(minecraft.player)) {
+            clear();
+            return;
+        }
+        if (minecraft.level.getGameTime() - lastUpdateGameTime > EXPIRE_AFTER_TICKS) {
+            clear();
             return;
         }
 
