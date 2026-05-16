@@ -28,7 +28,11 @@ final class WindTunnelAirfoilDataProvider implements DataProvider {
     public CompletableFuture<?> run(CachedOutput output) {
         List<CompletableFuture<?>> futures = new ArrayList<>();
         for (WindTunnelAirfoilData.AirfoilKind kind : WindTunnelAirfoilData.AirfoilKind.values()) {
-            futures.add(save(output, recipePathProvider.json(windtunnel("white_" + kind.idSuffix)), baseRecipe(kind)));
+            if (kind == WindTunnelAirfoilData.AirfoilKind.SYMMETRIC) {
+                futures.add(save(output, recipePathProvider.json(windtunnel("white_" + kind.idSuffix)), symmetricBaseRecipe()));
+            } else {
+                futures.add(save(output, recipePathProvider.json(windtunnel("white_" + kind.idSuffix)), verticalConversionRecipe()));
+            }
             for (DyeColor color : WindTunnelAirfoilData.COLORS) {
                 String id = WindTunnelAirfoilData.airfoilId(color, kind);
                 futures.add(save(output, lootTablePathProvider.json(windtunnel(id)), lootTable(id)));
@@ -44,35 +48,47 @@ final class WindTunnelAirfoilDataProvider implements DataProvider {
         return "Wind Tunnel Airfoil Data";
     }
 
-    private static JsonObject baseRecipe(WindTunnelAirfoilData.AirfoilKind kind) {
+    private static JsonObject symmetricBaseRecipe() {
         JsonObject key = new JsonObject();
-        JsonObject brass = new JsonObject();
-        brass.addProperty("item", "create:brass_sheet");
-        key.add("B", brass);
-        JsonObject iron = new JsonObject();
-        iron.addProperty("item", "minecraft:iron_ingot");
-        key.add("I", iron);
+        JsonObject ironSheet = new JsonObject();
+        ironSheet.addProperty("item", "create:iron_sheet");
+        key.add("I", ironSheet);
+        JsonObject sail = new JsonObject();
+        sail.addProperty("item", "create:sail_frame");
+        key.add("S", sail);
 
         JsonObject result = new JsonObject();
-        result.addProperty("id", "windtunnel:white_" + kind.idSuffix);
+        result.addProperty("id", "windtunnel:white_symmetric_airfoil");
         result.addProperty("count", 2);
 
         JsonArray pattern = new JsonArray();
-        if (kind == WindTunnelAirfoilData.AirfoilKind.SYMMETRIC) {
-            pattern.add("BBB");
-            pattern.add(" I ");
-            pattern.add(" I ");
-        } else {
-            pattern.add(" B ");
-            pattern.add("BIB");
-            pattern.add(" I ");
-        }
+        pattern.add(" I ");
+        pattern.add(" S ");
+        pattern.add("   ");
 
         JsonObject root = new JsonObject();
         root.addProperty("type", "minecraft:crafting_shaped");
         root.addProperty("category", "building");
         root.add("pattern", pattern);
         root.add("key", key);
+        root.add("result", result);
+        return root;
+    }
+
+    private static JsonObject verticalConversionRecipe() {
+        JsonArray ingredients = new JsonArray();
+        JsonObject symmetric = new JsonObject();
+        symmetric.addProperty("item", "windtunnel:white_symmetric_airfoil");
+        ingredients.add(symmetric);
+
+        JsonObject result = new JsonObject();
+        result.addProperty("id", "windtunnel:white_vertical_symmetric_airfoil");
+        result.addProperty("count", 1);
+
+        JsonObject root = new JsonObject();
+        root.addProperty("type", "minecraft:crafting_shapeless");
+        root.addProperty("category", "building");
+        root.add("ingredients", ingredients);
         root.add("result", result);
         return root;
     }
