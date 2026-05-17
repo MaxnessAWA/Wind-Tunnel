@@ -13,9 +13,7 @@ import java.util.Collections;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Objects;
-import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.DyeColor;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
@@ -24,9 +22,10 @@ import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
 /**
- * Centralized block and block-item registration.
+ * Centralized block registration.
  * <p>
- * All five blocks in the mod are registered here with their physical properties:
+ * All blocks in the mod are registered here with their physical properties.
+ * Item registration is handled separately in {@link WindTunnelItems}.
  * <ul>
  * <li><b>Wind Tunnel</b> — Copper-tier airflow generator, animated fan model.</li>
  * <li><b>Wind Tunnel Controller</b> — Orange control panel for network-wide tunnel settings.</li>
@@ -39,8 +38,6 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 public final class WindTunnelBlocks {
     /** Deferred register for blocks, scoped to the mod ID. */
     public static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(WindTunnelMod.MOD_ID);
-    /** Deferred register for block items, scoped to the mod ID. */
-    public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(WindTunnelMod.MOD_ID);
 
     // ---- Wind Tunnel: the core airflow generator ----
     public static final DeferredHolder<Block, WindTunnelBlock> WIND_TUNNEL = BLOCKS.register("wind_tunnel",
@@ -97,39 +94,7 @@ public final class WindTunnelBlocks {
     public static final Map<DyeColor, DeferredHolder<Block, VerticalSymmetricAirfoilBlock>> VERTICAL_SYMMETRIC_AIRFOILS =
             registerVerticalSymmetricAirfoils();
 
-    // ---- Block items: one per block ----
-    public static final DeferredHolder<Item, BlockItem> WIND_TUNNEL_ITEM = ITEMS.register("wind_tunnel",
-            () -> new BlockItem(WIND_TUNNEL.get(), new Item.Properties()));
-
-    public static final DeferredHolder<Item, BlockItem> WIND_TUNNEL_CONTROLLER_ITEM = ITEMS.register("wind_tunnel_controller",
-            () -> new BlockItem(WIND_TUNNEL_CONTROLLER.get(), new Item.Properties()));
-
-    public static final DeferredHolder<Item, BlockItem> AIRFLOW_INJECTOR_ITEM = ITEMS.register("airflow_injector",
-            () -> new BlockItem(AIRFLOW_INJECTOR.get(), new Item.Properties()));
-
-    public static final DeferredHolder<Item, BlockItem> WIND_TUNNEL_MOUNT_ITEM = ITEMS.register("wind_tunnel_mount",
-            () -> new BlockItem(WIND_TUNNEL_MOUNT.get(), new Item.Properties()));
-
-    public static final DeferredHolder<Item, BlockItem> WIND_TUNNEL_MOUNT_INTERFACE_ITEM = ITEMS.register("wind_tunnel_mount_interface",
-            () -> new BlockItem(WIND_TUNNEL_MOUNT_INTERFACE.get(), new Item.Properties()));
-
-    public static final DeferredHolder<Item, BlockItem> HOLOGRAM_PROJECTOR_ITEM = ITEMS.register("hologram_projector",
-            () -> new BlockItem(HOLOGRAM_PROJECTOR.get(), new Item.Properties()));
-
-    public static final Map<DyeColor, DeferredHolder<Item, BlockItem>> SYMMETRIC_AIRFOIL_ITEMS =
-            registerSymmetricAirfoilItems();
-    public static final Map<DyeColor, DeferredHolder<Item, BlockItem>> VERTICAL_SYMMETRIC_AIRFOIL_ITEMS =
-            registerVerticalSymmetricAirfoilItems();
-
     private WindTunnelBlocks() {
-    }
-
-    public static Iterable<DeferredHolder<Item, BlockItem>> symmetricAirfoilItems() {
-        return SYMMETRIC_AIRFOIL_ITEMS.values();
-    }
-
-    public static Iterable<DeferredHolder<Item, BlockItem>> verticalSymmetricAirfoilItems() {
-        return VERTICAL_SYMMETRIC_AIRFOIL_ITEMS.values();
     }
 
     public static SymmetricAirfoilBlock symmetricAirfoil(DyeColor color) {
@@ -189,26 +154,6 @@ public final class WindTunnelBlocks {
                     () -> new VerticalSymmetricAirfoilBlock(symmetricAirfoilProperties(color))));
         }
         return Collections.unmodifiableMap(airfoils);
-    }
-
-    private static Map<DyeColor, DeferredHolder<Item, BlockItem>> registerSymmetricAirfoilItems() {
-        EnumMap<DyeColor, DeferredHolder<Item, BlockItem>> airfoilItems = new EnumMap<>(DyeColor.class);
-        for (DyeColor color : DyeColor.values()) {
-            DeferredHolder<Block, SymmetricAirfoilBlock> block = Objects.requireNonNull(SYMMETRIC_AIRFOILS.get(color));
-            airfoilItems.put(color, ITEMS.register(color.getName() + "_symmetric_airfoil",
-                    () -> new BlockItem(block.get(), new Item.Properties())));
-        }
-        return Collections.unmodifiableMap(airfoilItems);
-    }
-
-    private static Map<DyeColor, DeferredHolder<Item, BlockItem>> registerVerticalSymmetricAirfoilItems() {
-        EnumMap<DyeColor, DeferredHolder<Item, BlockItem>> airfoilItems = new EnumMap<>(DyeColor.class);
-        for (DyeColor color : DyeColor.values()) {
-            DeferredHolder<Block, VerticalSymmetricAirfoilBlock> block = Objects.requireNonNull(VERTICAL_SYMMETRIC_AIRFOILS.get(color));
-            airfoilItems.put(color, ITEMS.register(color.getName() + "_vertical_symmetric_airfoil",
-                    () -> new BlockItem(block.get(), new Item.Properties())));
-        }
-        return Collections.unmodifiableMap(airfoilItems);
     }
 
     private static BlockBehaviour.Properties symmetricAirfoilProperties(DyeColor color) {

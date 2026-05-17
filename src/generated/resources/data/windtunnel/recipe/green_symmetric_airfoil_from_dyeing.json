@@ -55,7 +55,7 @@
     ]
   ],
   "result": {
-    "count": 1,
-    "id": "windtunnel:green_symmetric_airfoil"
+    "id": "windtunnel:green_symmetric_airfoil",
+    "count": 1
   }
 }

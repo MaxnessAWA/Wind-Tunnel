@@ -16,7 +16,7 @@
       "item": "minecraft:copper_ingot"
     },
     "S": {
-      "item": "minecraft:smooth_stone_slab"
+      "item": "create:railway_casing"
     },
     "I": {
       "item": "minecraft:iron_ingot"

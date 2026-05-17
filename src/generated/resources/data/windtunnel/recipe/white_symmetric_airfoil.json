@@ -1,21 +1,21 @@
 {
   "type": "minecraft:crafting_shaped",
   "category": "building",
+  "pattern": [
+    " I ",
+    " S ",
+    "   "
+  ],
   "key": {
-    "B": {
-      "item": "create:brass_sheet"
-    },
     "I": {
-      "item": "minecraft:iron_ingot"
+      "item": "create:iron_sheet"
+    },
+    "S": {
+      "item": "create:sail_frame"
     }
   },
-  "pattern": [
-    "BBB",
-    " I ",
-    " I "
-  ],
   "result": {
-    "count": 2,
-    "id": "windtunnel:white_symmetric_airfoil"
+    "id": "windtunnel:white_symmetric_airfoil",
+    "count": 2
   }
 }

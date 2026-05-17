@@ -3,6 +3,7 @@ package io.github.windtunnel;
 import io.github.windtunnel.content.AirflowInjectorShutdownState;
 import io.github.windtunnel.content.WindTunnelMountSelection;
 import io.github.windtunnel.registry.WindTunnelBlocks;
+import io.github.windtunnel.registry.WindTunnelItems;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionResult;
@@ -94,7 +95,7 @@ public final class WindTunnelCommonEvents {
      * </ul>
      */
     private static boolean shouldCaptureEntitySelection(Player player, ItemStack heldStack, Entity target) {
-        if (!heldStack.is(Objects.requireNonNull(WindTunnelBlocks.WIND_TUNNEL_MOUNT_INTERFACE_ITEM.get()))) {
+        if (!heldStack.is(Objects.requireNonNull(WindTunnelItems.WIND_TUNNEL_MOUNT_INTERFACE_ITEM.get()))) {
             return false;
         }
 

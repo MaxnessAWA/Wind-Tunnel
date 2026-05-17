@@ -1,21 +1,13 @@
 {
-  "type": "minecraft:crafting_shaped",
+  "type": "minecraft:crafting_shapeless",
   "category": "building",
-  "key": {
-    "B": {
-      "item": "create:brass_sheet"
-    },
-    "I": {
-      "item": "minecraft:iron_ingot"
+  "ingredients": [
+    {
+      "item": "windtunnel:white_symmetric_airfoil"
     }
-  },
-  "pattern": [
-    " B ",
-    "BIB",
-    " I "
   ],
   "result": {
-    "count": 2,
-    "id": "windtunnel:white_vertical_symmetric_airfoil"
+    "id": "windtunnel:white_vertical_symmetric_airfoil",
+    "count": 1
   }
 }

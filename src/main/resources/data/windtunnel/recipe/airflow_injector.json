@@ -2,25 +2,19 @@
   "type": "minecraft:crafting_shaped",
   "category": "redstone",
   "pattern": [
-    "ICI",
-    "RFR",
-    "ISI"
+    "BSB",
+    "SCS",
+    "BSB"
   ],
   "key": {
-    "I": {
-      "item": "minecraft:iron_ingot"
-    },
-    "C": {
-      "item": "create:andesite_casing"
-    },
-    "R": {
-      "item": "minecraft:redstone"
-    },
-    "F": {
-      "item": "create:shaft"
+    "B": {
+      "item": "create:brass_casing"
     },
     "S": {
-      "item": "minecraft:smooth_stone_slab"
+      "item": "create:brass_sheet"
+    },
+    "C": {
+      "item": "minecraft:conduit"
     }
   },
   "result": {

@@ -4,6 +4,7 @@ import com.mojang.serialization.MapCodec;
 import com.simibubi.create.content.equipment.wrench.IWrenchable;
 import io.github.windtunnel.WindTunnelMod;
 import io.github.windtunnel.registry.WindTunnelBlocks;
+import io.github.windtunnel.registry.WindTunnelItems;
 import net.minecraft.world.ItemInteractionResult;
 import java.util.EnumMap;
 import java.util.Map;
@@ -192,7 +193,7 @@ public class WindTunnelMountBlock extends BaseEntityBlock implements IWrenchable
     @Override
     protected net.minecraft.world.ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player,
                                                                   net.minecraft.world.InteractionHand hand, BlockHitResult hitResult) {
-        if (!stack.is(WindTunnelBlocks.WIND_TUNNEL_MOUNT_INTERFACE_ITEM.get()) || !player.isShiftKeyDown()) {
+        if (!stack.is(WindTunnelItems.WIND_TUNNEL_MOUNT_INTERFACE_ITEM.get()) || !player.isShiftKeyDown()) {
             return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }
 

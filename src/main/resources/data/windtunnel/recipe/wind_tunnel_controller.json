@@ -1,24 +1,66 @@
 {
-  "type": "minecraft:crafting_shaped",
-  "category": "redstone",
-  "key": {
-    "B": {
-      "item": "create:brass_sheet"
-    },
-    "C": {
-      "item": "minecraft:comparator"
-    },
-    "R": {
-      "item": "minecraft:redstone"
-    }
+  "type": "create:sequenced_assembly",
+  "ingredient": {
+    "item": "create:contraption_controls"
   },
-  "pattern": [
-    "BRB",
-    "RCR",
-    "BRB"
+  "transitional_item": {
+    "id": "create:contraption_controls"
+  },
+  "sequence": [
+    {
+      "type": "create:deploying",
+      "ingredients": [
+        {
+          "item": "create:contraption_controls"
+        },
+        {
+          "item": "create:brass_casing"
+        }
+      ],
+      "results": [
+        {
+          "id": "create:contraption_controls"
+        }
+      ]
+    },
+    {
+      "type": "create:deploying",
+      "ingredients": [
+        {
+          "item": "create:contraption_controls"
+        },
+        {
+          "item": "minecraft:repeater"
+        }
+      ],
+      "results": [
+        {
+          "id": "create:contraption_controls"
+        }
+      ]
+    },
+    {
+      "type": "create:deploying",
+      "ingredients": [
+        {
+          "item": "create:contraption_controls"
+        },
+        {
+          "item": "create:precision_mechanism"
+        }
+      ],
+      "results": [
+        {
+          "id": "create:contraption_controls"
+        }
+      ]
+    }
   ],
-  "result": {
-    "count": 1,
-    "id": "windtunnel:wind_tunnel_controller"
-  }
+  "results": [
+    {
+      "chance": 1.0,
+      "id": "windtunnel:wind_tunnel_controller"
+    }
+  ],
+  "loops": 1
 }

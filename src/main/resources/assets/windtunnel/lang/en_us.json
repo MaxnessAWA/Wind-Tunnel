@@ -136,5 +136,11 @@
   "block.windtunnel.wind_tunnel_mount.single_body_warning_cancel": "Cancel",
   "block.windtunnel.wind_tunnel_mount_interface.selected": "Mount interface selected",
   "block.windtunnel.wind_tunnel_mount_interface.entity_selected": "Mount target entity selected",
-  "block.windtunnel.wind_tunnel_mount_interface.not_on_aircraft": "Mount interface must be placed on an aircraft"
+  "block.windtunnel.wind_tunnel_mount_interface.not_on_aircraft": "Mount interface must be placed on an aircraft",
+  "item.windtunnel.symmetric_airfoil.tooltip": "Tilt to generate lift and drag",
+  "item.windtunnel.symmetric_airfoil.tooltip.shift": "Lift and drag vary with tilt angle. No lift at 0°, lift is lost above 15°",
+  "item.windtunnel.symmetric_airfoil.tooltip.hint": "Press Shift for more info",
+  "item.windtunnel.hologram_projector.tooltip": "Displays the nearest physics body projection",
+  "item.windtunnel.wind_tunnel.tooltip": "Requires a Wind Tunnel Controller to operate",
+  "item.windtunnel.wind_tunnel_mount_bind.tooltip": "Right-click a mount interface, then Shift+right-click the mount to bind"
 }

@@ -2,20 +2,20 @@
   "type": "minecraft:crafting_shaped",
   "category": "redstone",
   "key": {
-    "I": {
-      "item": "minecraft:iron_bars"
+    "B": {
+      "item": "create:brass_casing"
     },
-    "S": {
-      "item": "create:shaft"
+    "F": {
+      "item": "create:encased_fan"
     },
-    "C": {
-      "item": "create:andesite_casing"
+    "P": {
+      "item": "create:precision_mechanism"
     }
   },
   "pattern": [
-    "ISI",
-    "SCS",
-    "ISI"
+    " B ",
+    " F ",
+    " P "
   ],
   "result": {
     "count": 1,

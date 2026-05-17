@@ -1,5 +1,5 @@
 {
-  "itemGroup.windtunnel.main": "Wind Tunnel",
+  "itemGroup.windtunnel.main": "风洞",
   "block.windtunnel.wind_tunnel": "风洞",
   "block.windtunnel.wind_tunnel_controller": "风洞控制器",
   "block.windtunnel.wind_tunnel_controller.settings": "风洞参数",
@@ -136,5 +136,11 @@
   "block.windtunnel.wind_tunnel_mount.single_body_warning_cancel": "取消",
   "block.windtunnel.wind_tunnel_mount_interface.selected": "已选择支架接口",
   "block.windtunnel.wind_tunnel_mount_interface.entity_selected": "已选择要绑定的实体",
-  "block.windtunnel.wind_tunnel_mount_interface.not_on_aircraft": "支架接口必须安装在飞行器上"
+  "block.windtunnel.wind_tunnel_mount_interface.not_on_aircraft": "支架接口必须安装在飞行器上",
+  "item.windtunnel.symmetric_airfoil.tooltip": "倾斜以产生升力和阻力",
+  "item.windtunnel.symmetric_airfoil.tooltip.shift": "升阻力随倾斜角变化，倾斜角为0时不产生升力，15度以上时会失去升力",
+  "item.windtunnel.symmetric_airfoil.tooltip.hint": "按Shift显示更多",
+  "item.windtunnel.hologram_projector.tooltip": "显示最近的物理体投影",
+  "item.windtunnel.wind_tunnel.tooltip": "需要搭配风洞控制器使用",
+  "item.windtunnel.wind_tunnel_mount_bind.tooltip": "右键支架接口，然后Shift+右键支架进行绑定"
 }

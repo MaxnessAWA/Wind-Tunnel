@@ -22,16 +22,16 @@ public final class WindTunnelCreativeTabs {
                     .icon(WindTunnelCreativeTabs::createWindTunnelIcon)
                     .displayItems((parameters, output) -> {
                         // All block items in the mod
-                        output.accept(WindTunnelBlocks.WIND_TUNNEL_ITEM.get());
-                        output.accept(WindTunnelBlocks.WIND_TUNNEL_CONTROLLER_ITEM.get());
-                        output.accept(WindTunnelBlocks.AIRFLOW_INJECTOR_ITEM.get());
-                        output.accept(WindTunnelBlocks.WIND_TUNNEL_MOUNT_ITEM.get());
-                        output.accept(WindTunnelBlocks.WIND_TUNNEL_MOUNT_INTERFACE_ITEM.get());
-                        output.accept(WindTunnelBlocks.HOLOGRAM_PROJECTOR_ITEM.get());
-                        for (var airfoilItem : WindTunnelBlocks.symmetricAirfoilItems()) {
+                        output.accept(WindTunnelItems.WIND_TUNNEL_ITEM.get());
+                        output.accept(WindTunnelItems.WIND_TUNNEL_CONTROLLER_ITEM.get());
+                        output.accept(WindTunnelItems.AIRFLOW_INJECTOR_ITEM.get());
+                        output.accept(WindTunnelItems.WIND_TUNNEL_MOUNT_ITEM.get());
+                        output.accept(WindTunnelItems.WIND_TUNNEL_MOUNT_INTERFACE_ITEM.get());
+                        output.accept(WindTunnelItems.HOLOGRAM_PROJECTOR_ITEM.get());
+                        for (var airfoilItem : WindTunnelItems.symmetricAirfoilItems()) {
                             output.accept(airfoilItem.get());
                         }
-                        for (var airfoilItem : WindTunnelBlocks.verticalSymmetricAirfoilItems()) {
+                        for (var airfoilItem : WindTunnelItems.verticalSymmetricAirfoilItems()) {
                             output.accept(airfoilItem.get());
                         }
                     })
@@ -41,6 +41,6 @@ public final class WindTunnelCreativeTabs {
     }
 
     private static ItemStack createWindTunnelIcon() {
-        return new ItemStack(WindTunnelBlocks.WIND_TUNNEL_ITEM.get());
+        return new ItemStack(WindTunnelItems.WIND_TUNNEL_ITEM.get());
     }
 }
