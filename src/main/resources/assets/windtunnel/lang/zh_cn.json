@@ -138,7 +138,7 @@
   "block.windtunnel.wind_tunnel_mount_interface.entity_selected": "已选择要绑定的实体",
   "block.windtunnel.wind_tunnel_mount_interface.not_on_aircraft": "支架接口必须安装在飞行器上",
   "item.windtunnel.symmetric_airfoil.tooltip": "更符合空气动力学的翼型，具有零升阻力和升致阻力",
-  "item.windtunnel.symmetric_airfoil.tooltip.shift": "倾斜角为0时不产生升力，15度以上时开始失速，25度完全失速",
+  "item.windtunnel.symmetric_airfoil.tooltip.shift": "迎角为0时不产生升力，15度以上时开始失速，25度完全失速",
   "item.windtunnel.symmetric_airfoil.tooltip.hint": "按Shift显示更多",
   "item.windtunnel.hologram_projector.tooltip": "显示最近的物理体投影",
   "item.windtunnel.wind_tunnel.tooltip": "需要搭配风洞控制器使用",
