@@ -15,6 +15,7 @@ import io.github.windtunnel.data.WindTunnelDataGenerators;
 import io.github.windtunnel.registry.WindTunnelBlockEntities;
 import io.github.windtunnel.registry.WindTunnelBlocks;
 import io.github.windtunnel.registry.WindTunnelCreativeTabs;
+import io.github.windtunnel.registry.WindTunnelItems;
 import io.github.windtunnel.registry.WindTunnelMenus;
 import net.neoforged.fml.loading.FMLEnvironment;
 
@@ -59,7 +60,7 @@ public final class WindTunnelMod {
         IEventBus bus = Objects.requireNonNull(modBus);
         // ---- Phase 1: Register all content so later hooks can safely reference these types ----
         WindTunnelBlocks.BLOCKS.register(bus);
-        WindTunnelBlocks.ITEMS.register(bus);
+        WindTunnelItems.ITEMS.register(bus);
         WindTunnelBlockEntities.BLOCK_ENTITY_TYPES.register(bus);
         WindTunnelCreativeTabs.CREATIVE_MODE_TABS.register(bus);
         WindTunnelMenus.MENUS.register(bus);
