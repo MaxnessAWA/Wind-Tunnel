@@ -591,9 +591,13 @@ public class WindTunnelLdlib2DiagramElement extends UIElement implements WindTun
         return Math.max(MIN_DIAGRAM_HEIGHT, Math.round(diagramViewport.getSizeHeight()));
     }
 
-    private void ensureFramebufferSize(int width, int height) {
-        if (fbo == null || fboWidth != width || fboHeight != height) {
-            createFramebuffers(width, height);
+    private DiagramRenderResolution diagramRenderResolution() {
+        return DiagramRenderResolution.of(diagramWidth(), diagramHeight());
+    }
+
+    private void ensureFramebufferSize(DiagramRenderResolution resolution) {
+        if (fbo == null || fboWidth != resolution.physicalWidth() || fboHeight != resolution.physicalHeight()) {
+            createFramebuffers(resolution.physicalWidth(), resolution.physicalHeight());
             viewport.markDirty();
             updateViewportOrientation();
         }
@@ -1010,6 +1014,24 @@ public class WindTunnelLdlib2DiagramElement extends UIElement implements WindTun
     private record DiagramViewState(double yaw, double pitch, SharedDiagramViewport.ViewState viewportState) {
     }
 
+    private record DiagramRenderResolution(int logicalWidth, int logicalHeight, int physicalWidth, int physicalHeight) {
+        private static DiagramRenderResolution of(int logicalWidth, int logicalHeight) {
+            Minecraft minecraft = Minecraft.getInstance();
+            int safeLogicalWidth = Math.max(1, logicalWidth);
+            int safeLogicalHeight = Math.max(1, logicalHeight);
+            int physicalWidth = safeLogicalWidth;
+            int physicalHeight = safeLogicalHeight;
+            if (minecraft != null) {
+                var window = minecraft.getWindow();
+                double scaleX = safeLogicalWidth <= 0 ? 1.0D : window.getWidth() / (double) window.getGuiScaledWidth();
+                double scaleY = safeLogicalHeight <= 0 ? 1.0D : window.getHeight() / (double) window.getGuiScaledHeight();
+                physicalWidth = Math.max(1, (int) Math.round(safeLogicalWidth * scaleX));
+                physicalHeight = Math.max(1, (int) Math.round(safeLogicalHeight * scaleY));
+            }
+            return new DiagramRenderResolution(safeLogicalWidth, safeLogicalHeight, physicalWidth, physicalHeight);
+        }
+    }
+
     private enum DiagramIcon {
         FORCES_SEPARATED(16, 16),
         FORCES_MERGED(16, 16),
@@ -1130,7 +1152,8 @@ public class WindTunnelLdlib2DiagramElement extends UIElement implements WindTun
         public void drawBackgroundAdditional(@NotNull GUIContext guiContext) {
             int diagramWidth = diagramWidth();
             int diagramHeight = diagramHeight();
-            ensureFramebufferSize(diagramWidth, diagramHeight);
+            DiagramRenderResolution resolution = diagramRenderResolution();
+            ensureFramebufferSize(resolution);
             updateButtonState();
             populateDiagramFbos(guiContext.partialTick);
 

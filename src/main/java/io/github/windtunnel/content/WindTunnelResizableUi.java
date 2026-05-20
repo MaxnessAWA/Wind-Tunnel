@@ -113,18 +113,22 @@ final class WindTunnelResizableUi {
         private final String storageKey;
         private UIElement root;
         private boolean manualSize;
-        private int requestedWidth = -1;
-        private int requestedHeight = -1;
+        private int requestedWidthPhysical = -1;
+        private int requestedHeightPhysical = -1;
+        private int appliedLeft;
+        private int appliedTop;
         private int appliedWidth;
         private int appliedHeight;
-        private int anchorLeft;
-        private int anchorTop;
-        private int dragStartMouseX;
-        private int dragStartMouseY;
-        private int dragStartLeft;
-        private int dragStartTop;
-        private int dragStartWidth;
-        private int dragStartHeight;
+        private int appliedWidthPhysical;
+        private int appliedHeightPhysical;
+        private int anchorLeftPhysical;
+        private int anchorTopPhysical;
+        private int dragStartMouseXPhysical;
+        private int dragStartMouseYPhysical;
+        private int dragStartLeftPhysical;
+        private int dragStartTopPhysical;
+        private int dragStartWidthPhysical;
+        private int dragStartHeightPhysical;
         private boolean dragging;
         private Interaction activeInteraction = Interaction.NONE;
 
@@ -143,50 +147,63 @@ final class WindTunnelResizableUi {
 
         @Override
         public Size apply(Size screenSize) {
-            int screenWidth = Math.round(screenSize.getWidth());
-            int screenHeight = Math.round(screenSize.getHeight());
+            WindowMetrics metrics = WindowMetrics.capture(screenSize);
             restoreStoredBounds();
             if (manualSize) {
-                clampAnchor(screenWidth, screenHeight);
+                clampAnchor(metrics);
             }
             applyRootPosition(TaffyPosition.RELATIVE, 0, 0);
 
-            int targetWidth = manualSize && requestedWidth > 0
-                    ? requestedWidth
-                    : Math.max(minWidth, Math.round(screenWidth * defaultWidthRatio));
-            int targetHeight = manualSize && requestedHeight > 0
-                    ? requestedHeight
-                    : Math.max(minHeight, Math.round(screenHeight * defaultHeightRatio));
-            appliedWidth = clampWidth(targetWidth, screenWidth);
-            appliedHeight = clampHeight(targetHeight, screenHeight);
+            int minWidthPhysical = metrics.logicalToPhysicalWidth(minWidth);
+            int minHeightPhysical = metrics.logicalToPhysicalHeight(minHeight);
+            int targetWidthPhysical = manualSize && requestedWidthPhysical > 0
+                    ? requestedWidthPhysical
+                    : Math.max(minWidthPhysical, Math.round(metrics.screenWidthPhysical * defaultWidthRatio));
+            int targetHeightPhysical = manualSize && requestedHeightPhysical > 0
+                    ? requestedHeightPhysical
+                    : Math.max(minHeightPhysical, Math.round(metrics.screenHeightPhysical * defaultHeightRatio));
+            appliedWidthPhysical = clampWidth(targetWidthPhysical, metrics);
+            appliedHeightPhysical = clampHeight(targetHeightPhysical, metrics);
+            appliedWidth = Math.max(minWidth, metrics.physicalToLogicalWidth(appliedWidthPhysical));
+            appliedHeight = Math.max(minHeight, metrics.physicalToLogicalHeight(appliedHeightPhysical));
+            appliedLeft = manualSize ? metrics.physicalToLogicalX(anchorLeftPhysical) : 0;
+            appliedTop = manualSize ? metrics.physicalToLogicalY(anchorTopPhysical) : 0;
             return Size.of(appliedWidth, appliedHeight);
         }
 
         void beginDrag(float mouseX, float mouseY, ModularUI modularUI, Interaction interaction) {
+            WindowMetrics metrics = WindowMetrics.capture(modularUI.getScreenWidth(), modularUI.getScreenHeight());
             manualSize = true;
             dragging = true;
             activeInteraction = interaction;
-            anchorLeft = Math.round(modularUI.getLeftPos());
-            anchorTop = Math.round(modularUI.getTopPos());
-            dragStartMouseX = Math.round(mouseX);
-            dragStartMouseY = Math.round(mouseY);
-            dragStartLeft = anchorLeft;
-            dragStartTop = anchorTop;
-            dragStartWidth = currentWidth(modularUI);
-            dragStartHeight = currentHeight(modularUI);
-            requestedWidth = dragStartWidth;
-            requestedHeight = dragStartHeight;
+            anchorLeftPhysical = metrics.logicalToPhysicalX(Math.round(modularUI.getLeftPos()));
+            anchorTopPhysical = metrics.logicalToPhysicalY(Math.round(modularUI.getTopPos()));
+            dragStartMouseXPhysical = metrics.logicalToPhysicalX(Math.round(mouseX));
+            dragStartMouseYPhysical = metrics.logicalToPhysicalY(Math.round(mouseY));
+            dragStartLeftPhysical = anchorLeftPhysical;
+            dragStartTopPhysical = anchorTopPhysical;
+            dragStartWidthPhysical = metrics.logicalToPhysicalWidth(currentWidth(modularUI));
+            dragStartHeightPhysical = metrics.logicalToPhysicalHeight(currentHeight(modularUI));
+            requestedWidthPhysical = dragStartWidthPhysical;
+            requestedHeightPhysical = dragStartHeightPhysical;
+            appliedLeft = metrics.physicalToLogicalX(anchorLeftPhysical);
+            appliedTop = metrics.physicalToLogicalY(anchorTopPhysical);
             reinitialize(modularUI);
         }
 
         void updateDrag(float mouseX, float mouseY, ModularUI modularUI) {
-            int dx = Math.round(mouseX) - dragStartMouseX;
-            int dy = Math.round(mouseY) - dragStartMouseY;
+            WindowMetrics metrics = WindowMetrics.capture(modularUI.getScreenWidth(), modularUI.getScreenHeight());
+            int mouseXPhysical = metrics.logicalToPhysicalX(Math.round(mouseX));
+            int mouseYPhysical = metrics.logicalToPhysicalY(Math.round(mouseY));
+            int dx = mouseXPhysical - dragStartMouseXPhysical;
+            int dy = mouseYPhysical - dragStartMouseYPhysical;
             if (activeInteraction == Interaction.MOVE) {
-                moveWindow(dx, dy, modularUI.getScreenWidth(), modularUI.getScreenHeight());
+                moveWindow(dx, dy, metrics);
             } else {
-                resizeWindow(dx, dy, modularUI.getScreenWidth(), modularUI.getScreenHeight(), activeInteraction);
+                resizeWindow(dx, dy, metrics, activeInteraction);
             }
+            appliedLeft = metrics.physicalToLogicalX(anchorLeftPhysical);
+            appliedTop = metrics.physicalToLogicalY(anchorTopPhysical);
             reinitialize(modularUI);
             storeBounds();
         }
@@ -205,11 +222,11 @@ final class WindTunnelResizableUi {
         }
 
         int anchorLeft() {
-            return anchorLeft;
+            return appliedLeft;
         }
 
         int anchorTop() {
-            return anchorTop;
+            return appliedTop;
         }
 
         Interaction activeInteraction() {
@@ -263,42 +280,48 @@ final class WindTunnelResizableUi {
             return localY < MOVE_BAR_HEIGHT ? Interaction.MOVE : Interaction.NONE;
         }
 
-        private void moveWindow(int dx, int dy, int screenWidth, int screenHeight) {
-            requestedWidth = dragStartWidth;
-            requestedHeight = dragStartHeight;
-            int maxLeft = Math.max(SCREEN_MARGIN, screenWidth - dragStartWidth - SCREEN_MARGIN);
-            int maxTop = Math.max(SCREEN_MARGIN, screenHeight - dragStartHeight - SCREEN_MARGIN);
-            anchorLeft = Mth.clamp(dragStartLeft + dx, SCREEN_MARGIN, maxLeft);
-            anchorTop = Mth.clamp(dragStartTop + dy, SCREEN_MARGIN, maxTop);
+        private void moveWindow(int dx, int dy, WindowMetrics metrics) {
+            int marginX = metrics.logicalToPhysicalWidth(SCREEN_MARGIN);
+            int marginY = metrics.logicalToPhysicalHeight(SCREEN_MARGIN);
+            requestedWidthPhysical = dragStartWidthPhysical;
+            requestedHeightPhysical = dragStartHeightPhysical;
+            int maxLeft = Math.max(marginX, metrics.screenWidthPhysical - dragStartWidthPhysical - marginX);
+            int maxTop = Math.max(marginY, metrics.screenHeightPhysical - dragStartHeightPhysical - marginY);
+            anchorLeftPhysical = Mth.clamp(dragStartLeftPhysical + dx, marginX, maxLeft);
+            anchorTopPhysical = Mth.clamp(dragStartTopPhysical + dy, marginY, maxTop);
         }
 
-        private void resizeWindow(int dx, int dy, int screenWidth, int screenHeight, Interaction interaction) {
-            int left = dragStartLeft;
-            int top = dragStartTop;
-            int right = dragStartLeft + dragStartWidth;
-            int bottom = dragStartTop + dragStartHeight;
-            int minLeft = SCREEN_MARGIN;
-            int minTop = SCREEN_MARGIN;
-            int maxRight = screenWidth - SCREEN_MARGIN;
-            int maxBottom = screenHeight - SCREEN_MARGIN;
+        private void resizeWindow(int dx, int dy, WindowMetrics metrics, Interaction interaction) {
+            int marginX = metrics.logicalToPhysicalWidth(SCREEN_MARGIN);
+            int marginY = metrics.logicalToPhysicalHeight(SCREEN_MARGIN);
+            int minWidthPhysical = metrics.logicalToPhysicalWidth(minWidth);
+            int minHeightPhysical = metrics.logicalToPhysicalHeight(minHeight);
+            int left = dragStartLeftPhysical;
+            int top = dragStartTopPhysical;
+            int right = dragStartLeftPhysical + dragStartWidthPhysical;
+            int bottom = dragStartTopPhysical + dragStartHeightPhysical;
+            int minLeft = marginX;
+            int minTop = marginY;
+            int maxRight = metrics.screenWidthPhysical - marginX;
+            int maxBottom = metrics.screenHeightPhysical - marginY;
 
             if (interaction.left) {
-                left = Mth.clamp(dragStartLeft + dx, minLeft, right - minWidth);
+                left = Mth.clamp(dragStartLeftPhysical + dx, minLeft, right - minWidthPhysical);
             }
             if (interaction.right) {
-                right = Mth.clamp(right + dx, left + minWidth, maxRight);
+                right = Mth.clamp(right + dx, left + minWidthPhysical, maxRight);
             }
             if (interaction.top) {
-                top = Mth.clamp(dragStartTop + dy, minTop, bottom - minHeight);
+                top = Mth.clamp(dragStartTopPhysical + dy, minTop, bottom - minHeightPhysical);
             }
             if (interaction.bottom) {
-                bottom = Mth.clamp(bottom + dy, top + minHeight, maxBottom);
+                bottom = Mth.clamp(bottom + dy, top + minHeightPhysical, maxBottom);
             }
 
-            anchorLeft = left;
-            anchorTop = top;
-            requestedWidth = right - left;
-            requestedHeight = bottom - top;
+            anchorLeftPhysical = left;
+            anchorTopPhysical = top;
+            requestedWidthPhysical = right - left;
+            requestedHeightPhysical = bottom - top;
         }
 
         private int currentWidth(ModularUI modularUI) {
@@ -317,31 +340,39 @@ final class WindTunnelResizableUi {
 
         private void reinitialize(ModularUI modularUI) {
             if (modularUI.getScreen() instanceof WindTunnelLdlib2MenuScreen<?> screen) {
-                screen.relayoutModularUi(anchorLeft, anchorTop);
+                screen.relayoutModularUi(appliedLeft, appliedTop);
             } else {
                 modularUI.init(modularUI.getScreenWidth(), modularUI.getScreenHeight());
             }
         }
 
-        private void clampAnchor(int screenWidth, int screenHeight) {
-            int maxLeft = Math.max(SCREEN_MARGIN, screenWidth - minWidth - SCREEN_MARGIN);
-            int maxTop = Math.max(SCREEN_MARGIN, screenHeight - minHeight - SCREEN_MARGIN);
-            anchorLeft = Mth.clamp(anchorLeft, SCREEN_MARGIN, maxLeft);
-            anchorTop = Mth.clamp(anchorTop, SCREEN_MARGIN, maxTop);
+        private void clampAnchor(WindowMetrics metrics) {
+            int marginX = metrics.logicalToPhysicalWidth(SCREEN_MARGIN);
+            int marginY = metrics.logicalToPhysicalHeight(SCREEN_MARGIN);
+            int minWidthPhysical = metrics.logicalToPhysicalWidth(minWidth);
+            int minHeightPhysical = metrics.logicalToPhysicalHeight(minHeight);
+            int maxLeft = Math.max(marginX, metrics.screenWidthPhysical - minWidthPhysical - marginX);
+            int maxTop = Math.max(marginY, metrics.screenHeightPhysical - minHeightPhysical - marginY);
+            anchorLeftPhysical = Mth.clamp(anchorLeftPhysical, marginX, maxLeft);
+            anchorTopPhysical = Mth.clamp(anchorTopPhysical, marginY, maxTop);
         }
 
-        private int clampWidth(int width, int screenWidth) {
+        private int clampWidth(int width, WindowMetrics metrics) {
+            int marginX = metrics.logicalToPhysicalWidth(SCREEN_MARGIN);
+            int minWidthPhysical = metrics.logicalToPhysicalWidth(minWidth);
             int maxWidth = manualSize
-                    ? Math.max(minWidth, screenWidth - anchorLeft - SCREEN_MARGIN)
-                    : Math.max(minWidth, screenWidth - SCREEN_MARGIN * 2);
-            return Mth.clamp(width, minWidth, maxWidth);
+                    ? Math.max(minWidthPhysical, metrics.screenWidthPhysical - anchorLeftPhysical - marginX)
+                    : Math.max(minWidthPhysical, metrics.screenWidthPhysical - marginX * 2);
+            return Mth.clamp(width, minWidthPhysical, maxWidth);
         }
 
-        private int clampHeight(int height, int screenHeight) {
+        private int clampHeight(int height, WindowMetrics metrics) {
+            int marginY = metrics.logicalToPhysicalHeight(SCREEN_MARGIN);
+            int minHeightPhysical = metrics.logicalToPhysicalHeight(minHeight);
             int maxHeight = manualSize
-                    ? Math.max(minHeight, screenHeight - anchorTop - SCREEN_MARGIN)
-                    : Math.max(minHeight, screenHeight - SCREEN_MARGIN * 2);
-            return Mth.clamp(height, minHeight, maxHeight);
+                    ? Math.max(minHeightPhysical, metrics.screenHeightPhysical - anchorTopPhysical - marginY)
+                    : Math.max(minHeightPhysical, metrics.screenHeightPhysical - marginY * 2);
+            return Mth.clamp(height, minHeightPhysical, maxHeight);
         }
 
         private void applyRootPosition(TaffyPosition position, int left, int top) {
@@ -359,21 +390,80 @@ final class WindTunnelResizableUi {
                 return;
             }
             manualSize = true;
-            anchorLeft = storedBounds.left;
-            anchorTop = storedBounds.top;
-            requestedWidth = storedBounds.width;
-            requestedHeight = storedBounds.height;
+            anchorLeftPhysical = storedBounds.left;
+            anchorTopPhysical = storedBounds.top;
+            requestedWidthPhysical = storedBounds.width;
+            requestedHeightPhysical = storedBounds.height;
         }
 
         private void storeBounds() {
             if (storageKey.isEmpty() || !manualSize) {
                 return;
             }
-            STORED_BOUNDS.put(storageKey, new StoredBounds(anchorLeft, anchorTop, appliedWidth, appliedHeight));
+            STORED_BOUNDS.put(storageKey, new StoredBounds(anchorLeftPhysical, anchorTopPhysical, appliedWidthPhysical, appliedHeightPhysical));
         }
     }
 
     private record StoredBounds(int left, int top, int width, int height) {
+    }
+
+    private record WindowMetrics(int screenWidthLogical, int screenHeightLogical, int screenWidthPhysical,
+                                 int screenHeightPhysical, double scaleX, double scaleY) {
+        private static WindowMetrics capture(Size screenSize) {
+            return capture(Math.round(screenSize.getWidth()), Math.round(screenSize.getHeight()));
+        }
+
+        private static WindowMetrics capture(int screenWidthLogical, int screenHeightLogical) {
+            Minecraft minecraft = Minecraft.getInstance();
+            int screenWidthPhysical = screenWidthLogical;
+            int screenHeightPhysical = screenHeightLogical;
+            if (minecraft != null) {
+                var window = minecraft.getWindow();
+                screenWidthPhysical = Math.max(1, window.getWidth());
+                screenHeightPhysical = Math.max(1, window.getHeight());
+            }
+            double scaleX = screenWidthLogical <= 0 ? 1.0D : screenWidthPhysical / (double) screenWidthLogical;
+            double scaleY = screenHeightLogical <= 0 ? 1.0D : screenHeightPhysical / (double) screenHeightLogical;
+            return new WindowMetrics(
+                    Math.max(1, screenWidthLogical),
+                    Math.max(1, screenHeightLogical),
+                    screenWidthPhysical,
+                    screenHeightPhysical,
+                    scaleX,
+                    scaleY);
+        }
+
+        private int logicalToPhysicalX(int logicalX) {
+            return logicalToPhysicalWidth(logicalX);
+        }
+
+        private int logicalToPhysicalY(int logicalY) {
+            return logicalToPhysicalHeight(logicalY);
+        }
+
+        private int logicalToPhysicalWidth(int logicalWidth) {
+            return Math.max(1, (int) Math.round(logicalWidth * scaleX));
+        }
+
+        private int logicalToPhysicalHeight(int logicalHeight) {
+            return Math.max(1, (int) Math.round(logicalHeight * scaleY));
+        }
+
+        private int physicalToLogicalX(int physicalX) {
+            return physicalToLogicalWidth(physicalX);
+        }
+
+        private int physicalToLogicalY(int physicalY) {
+            return physicalToLogicalHeight(physicalY);
+        }
+
+        private int physicalToLogicalWidth(int physicalWidth) {
+            return Math.max(1, (int) Math.round(physicalWidth / scaleX));
+        }
+
+        private int physicalToLogicalHeight(int physicalHeight) {
+            return Math.max(1, (int) Math.round(physicalHeight / scaleY));
+        }
     }
 
     private enum Interaction {

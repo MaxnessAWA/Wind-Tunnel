@@ -11,6 +11,7 @@ import java.util.function.BiFunction;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import org.jetbrains.annotations.Nullable;
+import org.joml.Math;
 import org.joml.Vector3d;
 import org.joml.Vector3dc;
 import org.spongepowered.asm.mixin.Mixin;
@@ -167,6 +168,7 @@ public interface BlockSubLevelLiftProviderMixin {
 
         double normalDragSoftCap = WindTunnelConfig.normalDragSoftCap();
         double vnSq = BlockSubLevelLiftProvider.LIFT_NORMAL.dot(BlockSubLevelLiftProvider.LIFT_VELO);
+        vnSq = Math.abs(vnSq);
         return original * WindTunnelConfig.parallelDragTuning() / (1 + (vnSq / normalDragSoftCap / normalDragSoftCap));
     }
 
@@ -225,6 +227,7 @@ public interface BlockSubLevelLiftProviderMixin {
 
         double liftSoftCap = WindTunnelConfig.liftSoftCap();
         double vnSq = BlockSubLevelLiftProvider.LIFT_NORMAL.dot(BlockSubLevelLiftProvider.LIFT_VELO);
+        vnSq = Math.abs(vnSq);
         return original * WindTunnelConfig.liftTuning() / (1 + (vnSq / liftSoftCap / liftSoftCap));
     }
 
