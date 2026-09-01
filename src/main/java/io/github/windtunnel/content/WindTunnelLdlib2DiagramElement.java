@@ -86,7 +86,7 @@ public class WindTunnelLdlib2DiagramElement extends UIElement implements WindTun
     private static final int FORCE_TOGGLE_WIDTH = 72;
     private static final int FORCE_TOGGLE_HEIGHT = 10;
     private static final int FORCE_TOGGLE_ROW_GAP = 2;
-    private static final float FORCE_TOGGLE_LABEL_SCALE = 0.75F;
+    private static final float FORCE_TOGGLE_LABEL_SCALE = 1.0F;
     private static final int DIAGRAM_CONTROL_BUTTON_RIGHT = 20;
     private static final int DIAGRAM_CONTROL_BUTTON_BOTTOM = 72;
     private static final int DIAGRAM_CONTROL_BUTTON_SPACING = 20;
@@ -486,7 +486,7 @@ public class WindTunnelLdlib2DiagramElement extends UIElement implements WindTun
     }
 
     private void addForceArrowTooltip(ForceGroup forceGroup, int forceCount, double forceMagnitude, int color) {
-        Component forceNameText = forceGroup.name().copy().withStyle(style -> style.withColor(color));
+        Component forceNameText = forceGroupLabel(forceGroup).copy().withStyle(style -> style.withColor(color));
         Component forceMagnitudeText = Component.translatable("block.windtunnel.diagram.force_arrow_magnitude",
                 String.format(Locale.ROOT, "%,.2f", forceMagnitude)).withStyle(ChatFormatting.WHITE);
         if (forceCount > 1) {
@@ -498,6 +498,24 @@ public class WindTunnelLdlib2DiagramElement extends UIElement implements WindTun
             tooltipList.add(Component.translatable("block.windtunnel.diagram.force_arrow", forceNameText, forceMagnitudeText)
                     .withStyle(style -> style.withColor(TOOLTIP_LABEL_COLOR)));
         }
+    }
+
+    /**
+     * Localized label for a Sable force group. Uses this mod's own language keys so the diagram
+     * never inherits translations from third-party language packs; unknown groups fall back to
+     * Sable's own registered name.
+     */
+    private static Component forceGroupLabel(ForceGroup group) {
+        ResourceLocation id = ForceGroups.REGISTRY.getKey(group);
+        if (id != null) {
+            String path = id.getPath();
+            int slash = path.lastIndexOf('/');
+            if (slash >= 0) {
+                path = path.substring(slash + 1);
+            }
+            return Component.translatable("block.windtunnel.wind_tunnel_mount.force_group_" + path);
+        }
+        return group.name();
     }
 
     private void requestDiagramData() {
@@ -1260,10 +1278,10 @@ public class WindTunnelLdlib2DiagramElement extends UIElement implements WindTun
             pose.translate(x + 18.0F, y + 1.0F, 0.0F);
             pose.scale(FORCE_TOGGLE_LABEL_SCALE, FORCE_TOGGLE_LABEL_SCALE, 0.0F);
             if (enabled) {
-                graphics.drawString(font, group.name(), 1, 1, WindTunnelLdlib2Theme.PANEL_BACKGROUND, false);
-                graphics.drawString(font, group.name(), 0, 0, labelColor, false);
+                graphics.drawString(font, forceGroupLabel(group), 1, 1, WindTunnelLdlib2Theme.PANEL_BACKGROUND, false);
+                graphics.drawString(font, forceGroupLabel(group), 0, 0, labelColor, false);
             } else {
-                graphics.drawString(font, Objects.requireNonNull(group.name().copy().withStyle(ChatFormatting.STRIKETHROUGH)),
+                graphics.drawString(font, Objects.requireNonNull(forceGroupLabel(group).copy().withStyle(ChatFormatting.STRIKETHROUGH)),
                         0, 0, labelColor, false);
             }
             if (forceCount > 0) {

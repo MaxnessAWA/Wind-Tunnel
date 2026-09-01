@@ -54,7 +54,6 @@ public class WindTunnelMountBlockEntity extends SyncedBlockEntity {
     private static final String INTERFACE_ANCHOR_LOCAL_X_KEY = "InterfaceAnchorLocalX";
     private static final String INTERFACE_ANCHOR_LOCAL_Y_KEY = "InterfaceAnchorLocalY";
     private static final String INTERFACE_ANCHOR_LOCAL_Z_KEY = "InterfaceAnchorLocalZ";
-    private static final String APPLICATION_MODE_KEY = "ApplicationMode";
     private static final String REFERENCE_MODE_KEY = "ReferenceMode";
     private static final String FLOW_DIRECTION_KEY = "FlowDirection";
     private static final String LOCKED_KEY = "Locked";
@@ -82,7 +81,7 @@ public class WindTunnelMountBlockEntity extends SyncedBlockEntity {
     public static final double MIN_ANGLE = -90.0D;
     public static final double MAX_ANGLE = 90.0D;
     /** Minimum interval between measurement syncs to avoid packet spam. */
-    private static final long MEASUREMENT_SYNC_INTERVAL_TICKS = 2L;
+    private static final long MEASUREMENT_SYNC_INTERVAL_TICKS = 1L;
 
     // ---- Binding state ----
     private BindingKind bindingKind = BindingKind.NONE;
@@ -97,7 +96,6 @@ public class WindTunnelMountBlockEntity extends SyncedBlockEntity {
     private Vector3d interfaceAnchorLocal;
 
     // ---- Pose/test settings ----
-    private ApplicationMode applicationMode = ApplicationMode.SINGLE_BODY;
     private ReferenceMode referenceMode = ReferenceMode.INTERFACE;
     private Direction flowDirection = Direction.NORTH;
     private boolean locked;
@@ -214,10 +212,6 @@ public class WindTunnelMountBlockEntity extends SyncedBlockEntity {
 
     public Direction getFlowDirection() { return flowDirection; }
 
-    public ApplicationMode getApplicationMode() {
-        return applicationMode;
-    }
-
     public ReferenceMode getReferenceMode() {
         return referenceMode;
     }
@@ -276,8 +270,7 @@ public class WindTunnelMountBlockEntity extends SyncedBlockEntity {
         this.interfacePos = interfacePos.immutable();
         this.interfaceFacing = interfaceFacing;
         this.interfaceAnchorLocal = resolveInterfaceAnchorLocalForBinding(level, subLevelId, interfacePos);
-        this.applicationMode = resolveDefaultApplicationMode(level, subLevelId);
-        initializeOffsetsFromBinding(level, subLevelId, interfacePos, interfaceAnchorLocal, referenceMode, applicationMode);
+        initializeOffsetsFromBinding(level, subLevelId, interfacePos, interfaceAnchorLocal, referenceMode);
         this.measurement = WindTunnelMountMeasurement.EMPTY;
         this.diagramData = WindTunnelMountDiagramData.EMPTY;
         this.poseDirty = true;
@@ -293,7 +286,6 @@ public class WindTunnelMountBlockEntity extends SyncedBlockEntity {
         this.interfacePos = entity.blockPosition().immutable();
         this.interfaceFacing = facing;
         this.interfaceAnchorLocal = null;
-        this.applicationMode = ApplicationMode.SINGLE_BODY;
         initializeOffsetsFromEntityBinding(entity);
         this.measurement = WindTunnelMountMeasurement.EMPTY;
         this.diagramData = WindTunnelMountDiagramData.EMPTY;
@@ -304,11 +296,11 @@ public class WindTunnelMountBlockEntity extends SyncedBlockEntity {
     }
 
     private void initializeOffsetsFromBinding(ServerLevel level, UUID subLevelId, BlockPos interfacePos, @Nullable Vector3d interfaceAnchorLocal,
-                                              ReferenceMode referenceMode, ApplicationMode applicationMode) {
+                                              ReferenceMode referenceMode) {
         // Offset sliders are defined in world-space X/Y/Z relative to the mount center, so seed
         // them from the interface's current world position instead of some mount-local basis.
         Vector3d mountCenter = toCenter(worldPosition);
-        Vector3d referencePointWorld = resolveReferencePointWorld(level, subLevelId, interfacePos, interfaceAnchorLocal, referenceMode, applicationMode);
+        Vector3d referencePointWorld = resolveReferencePointWorld(level, subLevelId, interfacePos, interfaceAnchorLocal, referenceMode);
         this.offsetX = clampOffset(referencePointWorld.x() - mountCenter.x());
         this.offsetY = clampOffset(referencePointWorld.y() - mountCenter.y());
         this.offsetZ = clampOffset(referencePointWorld.z() - mountCenter.z());
@@ -347,21 +339,19 @@ public class WindTunnelMountBlockEntity extends SyncedBlockEntity {
     }
 
     private static Vector3d resolveReferencePointWorld(ServerLevel level, UUID subLevelId, BlockPos interfacePos, @Nullable Vector3d interfaceAnchorLocal,
-                                                       ReferenceMode referenceMode, ApplicationMode applicationMode) {
+                                                       ReferenceMode referenceMode) {
         if (referenceMode == ReferenceMode.CENTER_OF_MASS) {
             ServerSubLevelContainer container = SubLevelContainer.getContainer(level);
             if (container != null && container.getSubLevel(subLevelId) instanceof ServerSubLevel subLevel) {
-                return resolveCenterOfMassWorld(subLevel, applicationMode);
+                return resolveCenterOfMassWorld(subLevel);
             }
         }
         return resolveInterfaceAnchorWorld(level, subLevelId, interfacePos, interfaceAnchorLocal);
     }
 
-    private static Vector3d resolveCenterOfMassWorld(ServerSubLevel referenceSubLevel, ApplicationMode applicationMode) {
-        if (applicationMode != ApplicationMode.MULTI_BODY) {
-            return referenceSubLevel.logicalPose().transformPosition(referenceSubLevel.getMassTracker().getCenterOfMass(), new Vector3d());
-        }
-
+    private static Vector3d resolveCenterOfMassWorld(ServerSubLevel referenceSubLevel) {
+        // The mount's balance point is always the whole connected structure's center of mass,
+        // regardless of the application mode (single-body mode only narrows the measured set).
         double totalMass = 0.0D;
         Vector3d weightedCenterWorld = new Vector3d();
         Collection<dev.ryanhcode.sable.sublevel.SubLevel> connected = SubLevelHelper.getConnectedChain(referenceSubLevel);
@@ -391,7 +381,6 @@ public class WindTunnelMountBlockEntity extends SyncedBlockEntity {
         interfacePos = BlockPos.ZERO;
         interfaceFacing = Direction.NORTH;
         interfaceAnchorLocal = null;
-        applicationMode = ApplicationMode.SINGLE_BODY;
         locked = false;
         measurement = WindTunnelMountMeasurement.EMPTY;
         diagramData = WindTunnelMountDiagramData.EMPTY;
@@ -404,31 +393,25 @@ public class WindTunnelMountBlockEntity extends SyncedBlockEntity {
         }
     }
 
-    public void applySettings(boolean locked, ApplicationMode applicationMode, ReferenceMode referenceMode, Direction flowDirection,
+    public void applySettings(boolean locked, ReferenceMode referenceMode, Direction flowDirection,
                               boolean lockPitch, boolean lockRoll, boolean lockYaw, double angleOfAttack, double sideslipAngle,
                               double offsetX, double offsetY, double offsetZ) {
-        ApplicationMode resolvedMode = applicationMode == null ? ApplicationMode.SINGLE_BODY : applicationMode;
         ReferenceMode resolvedReferenceMode = referenceMode == null ? ReferenceMode.INTERFACE : referenceMode;
-        if (isEntityBinding()) {
-            resolvedMode = ApplicationMode.SINGLE_BODY;
-        }
         double clampedOffsetX = clampOffset(offsetX);
         double clampedOffsetY = clampOffset(offsetY);
         double clampedOffsetZ = clampOffset(offsetZ);
         boolean shouldRecenterOffsets = level instanceof ServerLevel
                 && isSubLevelBinding()
                 && boundSubLevelId != null
-                && (this.referenceMode != resolvedReferenceMode
-                || (this.applicationMode != resolvedMode && resolvedReferenceMode == ReferenceMode.CENTER_OF_MASS));
+                && this.referenceMode != resolvedReferenceMode;
         if (shouldRecenterOffsets && level instanceof ServerLevel serverLevel) {
             Vector3d mountCenter = toCenter(worldPosition);
-            Vector3d referencePointWorld = resolveReferencePointWorld(serverLevel, boundSubLevelId, interfacePos, interfaceAnchorLocal, resolvedReferenceMode, resolvedMode);
+            Vector3d referencePointWorld = resolveReferencePointWorld(serverLevel, boundSubLevelId, interfacePos, interfaceAnchorLocal, resolvedReferenceMode);
             clampedOffsetX = clampOffset(referencePointWorld.x() - mountCenter.x());
             clampedOffsetY = clampOffset(referencePointWorld.y() - mountCenter.y());
             clampedOffsetZ = clampOffset(referencePointWorld.z() - mountCenter.z());
         }
         boolean changed = this.locked != locked
-                || this.applicationMode != resolvedMode
                 || this.referenceMode != resolvedReferenceMode
                 || this.flowDirection != flowDirection
                 || this.lockPitch != lockPitch
@@ -441,7 +424,6 @@ public class WindTunnelMountBlockEntity extends SyncedBlockEntity {
                 || Double.compare(this.offsetZ, clampedOffsetZ) != 0;
 
         this.locked = locked;
-        this.applicationMode = resolvedMode;
         this.referenceMode = resolvedReferenceMode;
         this.flowDirection = flowDirection;
         this.lockPitch = lockPitch;
@@ -562,7 +544,6 @@ public class WindTunnelMountBlockEntity extends SyncedBlockEntity {
         if (boundEntityId != null) {
             tag.putUUID(BOUND_ENTITY_KEY, boundEntityId);
         }
-        tag.putString(APPLICATION_MODE_KEY, applicationMode.serializedName());
         tag.putString(REFERENCE_MODE_KEY, referenceMode.serializedName());
         tag.putString(FLOW_DIRECTION_KEY, flowDirection.getName());
         tag.putBoolean(LOCKED_KEY, locked);
@@ -612,7 +593,6 @@ public class WindTunnelMountBlockEntity extends SyncedBlockEntity {
             interfaceAnchorLocal = null;
         }
 
-        applicationMode = ApplicationMode.fromSerializedName(tag.getString(APPLICATION_MODE_KEY));
         referenceMode = ReferenceMode.fromSerializedName(tag.getString(REFERENCE_MODE_KEY));
         flowDirection = readDirection(tag.getString(FLOW_DIRECTION_KEY), Direction.NORTH);
         locked = tag.getBoolean(LOCKED_KEY);
@@ -659,22 +639,6 @@ public class WindTunnelMountBlockEntity extends SyncedBlockEntity {
         return direction != null ? direction : fallback;
     }
 
-    private static ApplicationMode resolveDefaultApplicationMode(ServerLevel level, UUID subLevelId) {
-        ServerSubLevelContainer container = SubLevelContainer.getContainer(level);
-        if (container == null) {
-            return ApplicationMode.SINGLE_BODY;
-        }
-        if (!(container.getSubLevel(subLevelId) instanceof dev.ryanhcode.sable.sublevel.ServerSubLevel subLevel)) {
-            return ApplicationMode.SINGLE_BODY;
-        }
-
-        Collection<dev.ryanhcode.sable.sublevel.SubLevel> connected = SubLevelHelper.getConnectedChain(subLevel);
-        if (connected.size() > 1) {
-            return ApplicationMode.MULTI_BODY;
-        }
-        return ApplicationMode.SINGLE_BODY;
-    }
-
     public enum BindingKind {
         NONE("none"),
         SUBLEVEL("sublevel"),
@@ -697,34 +661,6 @@ public class WindTunnelMountBlockEntity extends SyncedBlockEntity {
                 }
             }
             return NONE;
-        }
-    }
-
-    public enum ApplicationMode {
-        SINGLE_BODY("single_body"),
-        MULTI_BODY("multi_body");
-
-        private final String serializedName;
-
-        ApplicationMode(String serializedName) {
-            this.serializedName = serializedName;
-        }
-
-        public String serializedName() {
-            return serializedName;
-        }
-
-        public ApplicationMode next() {
-            return this == SINGLE_BODY ? MULTI_BODY : SINGLE_BODY;
-        }
-
-        public static ApplicationMode fromSerializedName(String name) {
-            for (ApplicationMode mode : values()) {
-                if (mode.serializedName.equals(name)) {
-                    return mode;
-                }
-            }
-            return SINGLE_BODY;
         }
     }
 

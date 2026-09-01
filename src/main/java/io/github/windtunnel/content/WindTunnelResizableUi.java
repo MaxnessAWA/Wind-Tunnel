@@ -28,6 +28,8 @@ final class WindTunnelResizableUi {
     private static final int EDGE_SIZE = 5;
     private static final int CORNER_SIZE = 14;
     private static final int MOVE_BAR_HEIGHT = 18;
+    /** Top-left strip width reserved for the menu bar so it does not conflict with window dragging. */
+    private static final int MENU_BAR_ZONE_WIDTH = 150;
     private static final Map<String, StoredBounds> STORED_BOUNDS = new HashMap<>();
 
     private WindTunnelResizableUi() {
@@ -277,7 +279,11 @@ final class WindTunnelResizableUi {
             if (bottom) {
                 return Interaction.BOTTOM;
             }
-            return localY < MOVE_BAR_HEIGHT ? Interaction.MOVE : Interaction.NONE;
+            if (localY < MOVE_BAR_HEIGHT) {
+                // The top-left strip belongs to the menu bar; the rest of the bar still moves.
+                return localX < MENU_BAR_ZONE_WIDTH ? Interaction.NONE : Interaction.MOVE;
+            }
+            return Interaction.NONE;
         }
 
         private void moveWindow(int dx, int dy, WindowMetrics metrics) {

@@ -19,7 +19,6 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 public record UpdateWindTunnelMountPayload(
         BlockPos pos,
         boolean locked,
-        WindTunnelMountBlockEntity.ApplicationMode applicationMode,
         WindTunnelMountBlockEntity.ReferenceMode referenceMode,
         Direction flowDirection,
         boolean lockPitch,
@@ -48,7 +47,6 @@ public record UpdateWindTunnelMountPayload(
         return new UpdateWindTunnelMountPayload(
                 BlockPos.STREAM_CODEC.decode(buffer),
                 buffer.readBoolean(),
-                WindTunnelMountBlockEntity.ApplicationMode.fromSerializedName(buffer.readUtf()),
                 WindTunnelMountBlockEntity.ReferenceMode.fromSerializedName(buffer.readUtf()),
                 Direction.from3DDataValue(buffer.readVarInt()),
                 buffer.readBoolean(),
@@ -66,7 +64,6 @@ public record UpdateWindTunnelMountPayload(
     private static void encode(RegistryFriendlyByteBuf buffer, UpdateWindTunnelMountPayload payload) {
         BlockPos.STREAM_CODEC.encode(buffer, payload.pos());
         buffer.writeBoolean(payload.locked());
-        buffer.writeUtf(payload.applicationMode().serializedName());
         buffer.writeUtf(payload.referenceMode().serializedName());
         buffer.writeVarInt(payload.flowDirection().get3DDataValue());
         buffer.writeBoolean(payload.lockPitch());
@@ -99,7 +96,6 @@ public record UpdateWindTunnelMountPayload(
         // intent-level parameters.
         mount.applySettings(
                 payload.locked(),
-                payload.applicationMode(),
                 payload.referenceMode(),
                 payload.flowDirection(),
                 payload.lockPitch(),

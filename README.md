@@ -17,7 +17,7 @@ The project provides world-mounted wind tunnels, aircraft-mounted airflow inject
 ## Target Environment
 
 - Minecraft `1.21.1`
-- NeoForge `21.1.219+`
+- NeoForge `21.1.228+`
 - Java `21`
 
 ## Runtime Dependencies
@@ -25,9 +25,9 @@ The project provides world-mounted wind tunnels, aircraft-mounted airflow inject
 The mod metadata declares these gameplay dependencies:
 
 - Create `6.0.10+`
-- Sable `1.0.6+`
-- Simulated `1.0.3+`
-- Create Aeronautics `1.0.3+`
+- Sable `2.0.0+`
+- Simulated `1.3.1+`
+- Create Aeronautics `1.3.0+`
 - LDLib2 `2.2.6+`
 
 ## Build

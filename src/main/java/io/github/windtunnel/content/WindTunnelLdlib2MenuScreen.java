@@ -2,12 +2,18 @@ package io.github.windtunnel.content;
 
 import com.lowdragmc.lowdraglib2.gui.holder.ModularUIScreen;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
+import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import dev.vfyjxf.taffy.style.FlexDirection;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.MenuAccess;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 
 import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -16,11 +22,22 @@ import org.jetbrains.annotations.NotNull;
 public class WindTunnelLdlib2MenuScreen<M extends AbstractContainerMenu> extends ModularUIScreen implements MenuAccess<M> {
     private static final Field MODULAR_UI_LEFT_POS = modularUiField("leftPos");
     private static final Field MODULAR_UI_TOP_POS = modularUiField("topPos");
+    /** Default temporary GUI scale pinned while a Wind Tunnel screen is open. */
+    private static final int DEFAULT_TEMP_GUI_SCALE = 2;
 
     private final M menu;
     private final Runnable tickHandler;
     private final WindTunnelDiagramReceiver diagramReceiver;
     private final WindTunnelResizableUi.SizeState sizeState;
+    /** GUI scale pinned while this screen is open; adjustable from the menu bar. */
+    private int tempGuiScale = DEFAULT_TEMP_GUI_SCALE;
+    /** Original GUI scale captured before this screen pinned it (null if never pinned). */
+    private Integer originalGuiScale;
+    private boolean guiScalePinned;
+    /** Set while closing so the resize triggered by restoring the scale does not re-pin it. */
+    private boolean closing;
+    /** Menu bar is only attached once per screen instance. */
+    private boolean menuBarAdded;
 
     public WindTunnelLdlib2MenuScreen(M menu, ModularUI modularUI, Component title, Runnable tickHandler) {
         this(menu, modularUI, title, tickHandler, null);
@@ -60,6 +77,13 @@ public class WindTunnelLdlib2MenuScreen<M extends AbstractContainerMenu> extends
 
     @Override
     public void init() {
+        if (closing) {
+            return;
+        }
+        if (pinTemporaryGuiScale()) {
+            // resizeDisplay() re-runs init() with the new screen dimensions; skip this pass.
+            return;
+        }
         super.init();
         if (sizeState != null && sizeState.hasManualBounds()) {
             setModularUiPosition(sizeState.anchorLeft(), sizeState.anchorTop());
@@ -67,6 +91,31 @@ public class WindTunnelLdlib2MenuScreen<M extends AbstractContainerMenu> extends
             this.topPos = sizeState.anchorTop();
             modularUI.ui.rootElement.clearLayoutCache();
         }
+        if (!menuBarAdded) {
+            menuBarAdded = true;
+            insertTopToolbar();
+            modularUI.ui.rootElement.clearLayoutCache();
+        }
+    }
+
+    /**
+     * Wraps the existing window content in a content row and inserts a dedicated toolbar row
+     * above it, so the menu bar is part of the layout instead of an overlay.
+     */
+    private void insertTopToolbar() {
+        UIElement rootElement = modularUI.ui.rootElement;
+        List<UIElement> existing = new ArrayList<>(rootElement.getChildren());
+        rootElement.clearAllChildren();
+        UIElement toolbar = Objects.requireNonNull(WindTunnelMenuBar.create(this));
+        UIElement content = new UIElement()
+                .layout(l -> l.widthStretch()
+                        .heightStretch()
+                        .flexDirection(FlexDirection.ROW)
+                        .gapAll(4))
+                .addChildren(existing.toArray(new UIElement[0]));
+        rootElement.addChildren(toolbar, content);
+        // No vertical gap so the tab header sits flush against the toolbar.
+        rootElement.layout(l -> l.flexDirection(FlexDirection.COLUMN).gapAll(0));
     }
 
     @Override
@@ -119,6 +168,80 @@ public class WindTunnelLdlib2MenuScreen<M extends AbstractContainerMenu> extends
         }
     }
 
+    /**
+     * Temporarily pins Minecraft's GUI scale while this screen is open (restored on close).
+     * Returns true when the scale changed and the display was resized; the caller should then
+     * return immediately because the resize re-enters {@code init()} with fresh dimensions.
+     */
+    private boolean pinTemporaryGuiScale() {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft == null) {
+            return false;
+        }
+        var guiScale = minecraft.options.guiScale();
+        int current = guiScale.get();
+        if (current == tempGuiScale) {
+            return false;
+        }
+        if (originalGuiScale == null) {
+            originalGuiScale = current;
+        }
+        guiScale.set(tempGuiScale);
+        guiScalePinned = true;
+        minecraft.resizeDisplay();
+        return true;
+    }
+
+    /**
+     * Re-pins the temporary GUI scale while this screen is open, e.g. from the menu bar.
+     * The player's original setting is still restored when the screen closes.
+     */
+    public void applyTemporaryGuiScale(int scale) {
+        int clamped = Mth.clamp(scale, 0, maxAvailableGuiScale());
+        if (clamped == tempGuiScale) {
+            return;
+        }
+        tempGuiScale = clamped;
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft == null) {
+            return;
+        }
+        var guiScale = minecraft.options.guiScale();
+        if (guiScale.get() != clamped) {
+            guiScale.set(clamped);
+            minecraft.resizeDisplay();
+        }
+    }
+
+    /** Current temporary GUI scale pinned while this screen is open. */
+    public int getTemporaryGuiScale() {
+        return tempGuiScale;
+    }
+
+    private static int maxAvailableGuiScale() {
+        Minecraft minecraft = Minecraft.getInstance();
+        return minecraft != null
+                ? minecraft.getWindow().calculateScale(0, minecraft.isEnforceUnicode())
+                : 4;
+    }
+
+    /** Restores the GUI scale captured on open. Safe to call from {@link #removed()}. */
+    private void restoreOriginalGuiScale() {
+        if (!guiScalePinned || originalGuiScale == null) {
+            return;
+        }
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft != null) {
+            var guiScale = minecraft.options.guiScale();
+            if (guiScale.get() != originalGuiScale) {
+                guiScale.set(originalGuiScale);
+                minecraft.resizeDisplay();
+            }
+        }
+        guiScalePinned = false;
+        originalGuiScale = null;
+    }
+
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (sizeState != null && WindTunnelResizableUi.mouseClicked(sizeState, modularUI, mouseX, mouseY, button)) {
@@ -145,6 +268,9 @@ public class WindTunnelLdlib2MenuScreen<M extends AbstractContainerMenu> extends
 
     @Override
     public void removed() {
+        closing = true;
+        restoreOriginalGuiScale();
+        closing = false;
         WindTunnelResizableUi.resetCursor();
         modularUI.onRemoved();
         Minecraft minecraft = Minecraft.getInstance();

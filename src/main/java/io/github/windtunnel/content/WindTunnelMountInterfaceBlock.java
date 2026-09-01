@@ -2,6 +2,7 @@ package io.github.windtunnel.content;
 
 import com.mojang.serialization.MapCodec;
 import com.simibubi.create.content.equipment.wrench.IWrenchable;
+import dev.ryanhcode.sable.api.block.BlockSubLevelCollisionShape;
 import dev.ryanhcode.sable.Sable;
 import dev.ryanhcode.sable.sublevel.ServerSubLevel;
 import io.github.windtunnel.WindTunnelMod;
@@ -43,7 +44,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * is a low-profile plate with a raised center — an unobtrusive marker on the aircraft surface.
  */
 @SuppressWarnings("null")
-public class WindTunnelMountInterfaceBlock extends BaseEntityBlock implements IWrenchable {
+public class WindTunnelMountInterfaceBlock extends BaseEntityBlock implements IWrenchable, BlockSubLevelCollisionShape {
     public static final MapCodec<WindTunnelMountInterfaceBlock> CODEC = simpleCodec(WindTunnelMountInterfaceBlock::new);
     /** Direction the interface faces (defaults to UP for surface mounting). */
     public static final DirectionProperty FACING = BlockStateProperties.FACING;
@@ -107,6 +108,12 @@ public class WindTunnelMountInterfaceBlock extends BaseEntityBlock implements IW
     }
 
     // ---- Visual shapes ----
+
+    @Override
+    public VoxelShape getSubLevelCollisionShape(BlockGetter blockGetter, BlockState state) {
+        // Full-block collider so the interface participates in Sable sublevel physics as a solid cube.
+        return Shapes.block();
+    }
 
     @Override
     protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {

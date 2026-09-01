@@ -2,8 +2,8 @@ package io.github.windtunnel.content;
 
 import dev.ryanhcode.sable.api.SubLevelHelper;
 import dev.ryanhcode.sable.api.physics.constraint.ConstraintJointAxis;
+import dev.ryanhcode.sable.api.physics.constraint.FreeConstraintConfiguration;
 import dev.ryanhcode.sable.api.physics.constraint.PhysicsConstraintHandle;
-import dev.ryanhcode.sable.api.physics.constraint.free.FreeConstraintConfiguration;
 import dev.ryanhcode.sable.api.physics.force.ForceGroups;
 import dev.ryanhcode.sable.api.physics.force.QueuedForceGroup;
 import dev.ryanhcode.sable.api.sublevel.ServerSubLevelContainer;
@@ -65,16 +65,14 @@ public final class WindTunnelMountService {
      */
     private static final Map<ServerSubLevel, DiagramCaptureTicket> PENDING_DIAGRAM_CAPTURES = new ConcurrentHashMap<>();
     /**
-     * Multi-body locking replays stored relative transforms so secondary bodies keep their
-     * original relation to the selected reference body while the stand moves the structure.
-     */
-    private static final Map<ResourceKey<Level>, Map<BlockPos, MultiBodyPoseSnapshot>> MULTI_BODY_POSE_SNAPSHOTS = new ConcurrentHashMap<>();
-    /**
      * Sublevels currently driven kinematically by the stand through the teleport/velocity-lock
      * path. Custom airfoil forces should ignore self-motion for these bodies so the stand's servo
      * corrections do not get reinterpreted as aerodynamic relative wind.
      */
     private static final Map<ResourceKey<Level>, Set<UUID>> KINEMATICALLY_DRIVEN_SUBLEVELS = new ConcurrentHashMap<>();
+    /** Tracks which sublevels have per-point force recording enabled for mount measurement. */
+    private static final Map<ResourceKey<Level>, Map<BlockPos, Set<UUID>>> MEASUREMENT_TRACKING = new ConcurrentHashMap<>();
+    private static final String MEASUREMENT_TRACKING_OWNER = "wind_tunnel_mount_measurement";
 
     // ---- Physics constants ----
     private static final Vector3d WORLD_UP = new Vector3d(0.0D, 1.0D, 0.0D);
@@ -112,10 +110,10 @@ public final class WindTunnelMountService {
         }
 
         positions.remove(mount.getBlockPos());
-        clearMultiBodyPoseSnapshot(level.dimension(), mount.getBlockPos());
         if (positions.isEmpty()) {
             ACTIVE_MOUNTS.remove(level.dimension());
         }
+        releaseMeasurementTracking(level, mount.getBlockPos());
     }
 
     /**
@@ -182,7 +180,7 @@ public final class WindTunnelMountService {
 
             // Mounts placed on aircraft cannot act as stands — release and skip.
             if (mount.isPlacedOnAircraft()) {
-                clearMultiBodyPoseSnapshot(level.dimension(), mount.getBlockPos());
+                releaseMeasurementTracking(level, pos);
                 mount.releaseConstraint();
                 mount.clearMeasurement();
                 mount.setDiagramData(WindTunnelMountDiagramData.EMPTY);
@@ -190,7 +188,7 @@ public final class WindTunnelMountService {
             }
 
             if (!mount.hasBinding()) {
-                clearMultiBodyPoseSnapshot(level.dimension(), mount.getBlockPos());
+                releaseMeasurementTracking(level, pos);
                 mount.releaseConstraint();
                 mount.clearMeasurement();
                 mount.setDiagramData(WindTunnelMountDiagramData.EMPTY);
@@ -199,7 +197,7 @@ public final class WindTunnelMountService {
 
             // Entity binding: lock the entity at the requested pose.
             if (mount.isEntityBinding()) {
-                clearMultiBodyPoseSnapshot(level.dimension(), mount.getBlockPos());
+                releaseMeasurementTracking(level, pos);
                 mount.releaseConstraint();
                 Entity boundEntity = resolveBoundEntity(level, mount);
                 if (boundEntity == null) {
@@ -229,7 +227,7 @@ public final class WindTunnelMountService {
             // Sublevel binding: lock the aircraft at the interface-grounded test pose.
             UUID subLevelId = mount.getBoundSubLevelId();
             if (subLevelId == null) {
-                clearMultiBodyPoseSnapshot(level.dimension(), mount.getBlockPos());
+                releaseMeasurementTracking(level, pos);
                 mount.releaseConstraint();
                 mount.clearMeasurement();
                 mount.setDiagramData(WindTunnelMountDiagramData.EMPTY);
@@ -237,7 +235,7 @@ public final class WindTunnelMountService {
             }
 
             if (!(container.getSubLevel(subLevelId) instanceof ServerSubLevel subLevel)) {
-                clearMultiBodyPoseSnapshot(level.dimension(), mount.getBlockPos());
+                releaseMeasurementTracking(level, pos);
                 mount.clearBinding();
                 mount.clearMeasurement();
                 mount.setDiagramData(WindTunnelMountDiagramData.EMPTY);
@@ -245,7 +243,7 @@ public final class WindTunnelMountService {
             }
 
             if (!mount.isLocked()) {
-                clearMultiBodyPoseSnapshot(level.dimension(), mount.getBlockPos());
+                releaseMeasurementTracking(level, pos);
                 mount.releaseConstraint();
                 mount.clearMeasurement();
                 mount.setDiagramData(WindTunnelMountDiagramData.EMPTY);
@@ -258,8 +256,11 @@ public final class WindTunnelMountService {
 
             // The current implementation intentionally uses "teleport + resetVelocity" every physics
             // step instead of a persistent constraint. This is a stability workaround for the
-            // extreme-Y removal issue seen with constraint-based locking.
+            // extreme-Y removal issue seen with constraint-based locking. Only the reference body is
+            // driven kinematically; the rest of the connected structure follows through its own
+            // physics constraints while all bodies are sampled for measurement.
             collectKinematicallyDrivenSublevels(container, mount, subLevel, drivenSubLevelIds);
+            updateMeasurementTracking(level, pos, resolveMeasuredSubLevels(subLevel));
             applyLockedPose(system, container, mount, subLevel);
             mount.clearPoseDirty();
         }
@@ -371,52 +372,16 @@ public final class WindTunnelMountService {
             return;
         }
 
-        // Solve the reference body once, then derive every secondary body from that target pose in
-        // multi-body mode.
+        // Only the reference body is driven kinematically; connected bodies follow through their
+        // own physics constraints. The measurement set covers the whole connected structure, so the
+        // stand does not need to replay frozen relative transforms.
         PoseSolution pose = computePoseSolution(mount, container, subLevel);
         Vector3d desiredAngularVelocityWorld = resolveDesiredAngularVelocity(system, subLevel, pose, mount);
         mount.releaseConstraint();
-        if (mount.getApplicationMode() != WindTunnelMountBlockEntity.ApplicationMode.MULTI_BODY) {
-            clearMultiBodyPoseSnapshot(subLevel.getLevel().dimension(), mount.getBlockPos());
-            system.getPipeline().teleport(subLevel, pose.position(), pose.orientation());
-            Vector3d desiredLinearVelocityWorld = resolveDesiredLinearVelocity(subLevel, pose.position(), pose.orientation(),
-                    pose.constraintAnchorWorld(), desiredAngularVelocityWorld);
-            applyVelocityLock(system, subLevel, desiredLinearVelocityWorld, desiredAngularVelocityWorld);
-            mount.setActiveConstraint(null, null);
-            return;
-        }
-
-        List<ServerSubLevel> groupedSubLevels = resolveMeasuredSubLevels(container, mount, subLevel);
-        if (groupedSubLevels.isEmpty()) {
-            clearMultiBodyPoseSnapshot(subLevel.getLevel().dimension(), mount.getBlockPos());
-            system.getPipeline().teleport(subLevel, pose.position(), pose.orientation());
-            Vector3d desiredLinearVelocityWorld = resolveDesiredLinearVelocity(subLevel, pose.position(), pose.orientation(),
-                    pose.constraintAnchorWorld(), desiredAngularVelocityWorld);
-            applyVelocityLock(system, subLevel, desiredLinearVelocityWorld, desiredAngularVelocityWorld);
-            mount.setActiveConstraint(null, null);
-            return;
-        }
-
-        MultiBodyPoseSnapshot snapshot = getOrCreateMultiBodyPoseSnapshot(mount, subLevel, groupedSubLevels);
-        // Pose3d transforms are defined around the sublevel's rotationPoint (typically its center
-        // of mass). Rebuilding a target pose from only position + orientation would silently reset
-        // that pivot to zero, which sends secondary bodies to the wrong world positions.
-        Pose3d referenceTargetPose = new Pose3d(subLevel.logicalPose());
-        referenceTargetPose.position().set(pose.position());
-        referenceTargetPose.orientation().set(pose.orientation());
-        for (ServerSubLevel groupedSubLevel : groupedSubLevels) {
-            SubLevelRelativePose relativePose = snapshot.relativePoses().get(groupedSubLevel.getUniqueId());
-            if (relativePose == null) {
-                continue;
-            }
-
-            Vector3d targetPosition = referenceTargetPose.transformPosition(relativePose.positionRelativeToReference(), new Vector3d());
-            Quaterniond targetOrientation = new Quaterniond(referenceTargetPose.orientation()).mul(relativePose.orientationRelativeToReference());
-            system.getPipeline().teleport(groupedSubLevel, targetPosition, targetOrientation);
-            Vector3d desiredLinearVelocityWorld = resolveDesiredLinearVelocity(groupedSubLevel, targetPosition, targetOrientation,
-                    pose.constraintAnchorWorld(), desiredAngularVelocityWorld);
-            applyVelocityLock(system, groupedSubLevel, desiredLinearVelocityWorld, desiredAngularVelocityWorld);
-        }
+        system.getPipeline().teleport(subLevel, pose.position(), pose.orientation());
+        Vector3d desiredLinearVelocityWorld = resolveDesiredLinearVelocity(subLevel, pose.position(), pose.orientation(),
+                pose.constraintAnchorWorld(), desiredAngularVelocityWorld);
+        applyVelocityLock(system, subLevel, desiredLinearVelocityWorld, desiredAngularVelocityWorld);
         mount.setActiveConstraint(null, null);
     }
 
@@ -441,18 +406,8 @@ public final class WindTunnelMountService {
         if (shouldUseInterfaceSupportConstraint(mount)) {
             return;
         }
-        if (mount.getApplicationMode() != WindTunnelMountBlockEntity.ApplicationMode.MULTI_BODY) {
-            destination.add(referenceSubLevel.getUniqueId());
-            return;
-        }
-        List<ServerSubLevel> groupedSubLevels = resolveMeasuredSubLevels(container, mount, referenceSubLevel);
-        if (groupedSubLevels.isEmpty()) {
-            destination.add(referenceSubLevel.getUniqueId());
-            return;
-        }
-        for (ServerSubLevel groupedSubLevel : groupedSubLevels) {
-            destination.add(groupedSubLevel.getUniqueId());
-        }
+        // Only the reference body is driven kinematically; connected bodies keep real physics.
+        destination.add(referenceSubLevel.getUniqueId());
     }
 
     private static boolean shouldUseInterfaceSupportConstraint(WindTunnelMountBlockEntity mount) {
@@ -488,20 +443,6 @@ public final class WindTunnelMountService {
         );
         configureInterfaceSupportConstraint(handle, mount, pose, supportOrientation);
         mount.setActiveConstraint(handle, subLevel.getUniqueId());
-
-        if (mount.getApplicationMode() != WindTunnelMountBlockEntity.ApplicationMode.MULTI_BODY) {
-            clearMultiBodyPoseSnapshot(subLevel.getLevel().dimension(), mount.getBlockPos());
-            return;
-        }
-
-        List<ServerSubLevel> groupedSubLevels = resolveMeasuredSubLevels(container, mount, subLevel);
-        if (groupedSubLevels.size() <= 1) {
-            clearMultiBodyPoseSnapshot(subLevel.getLevel().dimension(), mount.getBlockPos());
-            return;
-        }
-
-        MultiBodyPoseSnapshot snapshot = getOrCreateMultiBodyPoseSnapshot(mount, subLevel, groupedSubLevels);
-        syncFollowerSubLevelsToReference(system, subLevel, groupedSubLevels, snapshot, pose, poseDirty);
     }
 
     private static void configureInterfaceSupportConstraint(PhysicsConstraintHandle handle, WindTunnelMountBlockEntity mount,
@@ -523,47 +464,6 @@ public final class WindTunnelMountService {
         handle.setMotor(axis, 0.0D, 0.0D, SUPPORT_ANGULAR_FREE_DAMPING, false, 0.0D);
     }
 
-    private static void syncFollowerSubLevelsToReference(SubLevelPhysicsSystem system, ServerSubLevel referenceSubLevel,
-                                                         List<ServerSubLevel> groupedSubLevels, MultiBodyPoseSnapshot snapshot,
-                                                         PoseSolution pose, boolean poseDirty) {
-        Pose3d referencePose = new Pose3d(referenceSubLevel.logicalPose());
-        if (poseDirty) {
-            referencePose.position().set(pose.position());
-            referencePose.orientation().set(pose.orientation());
-        }
-
-        Vector3d referenceLinearVelocity = poseDirty
-                ? new Vector3d()
-                : system.getPipeline().getLinearVelocity(referenceSubLevel, new Vector3d());
-        Vector3d referenceAngularVelocity = poseDirty
-                ? new Vector3d()
-                : system.getPipeline().getAngularVelocity(referenceSubLevel, new Vector3d());
-        Vector3d referenceOriginWorld = new Vector3d(referencePose.position());
-
-        for (ServerSubLevel groupedSubLevel : groupedSubLevels) {
-            if (groupedSubLevel == referenceSubLevel) {
-                continue;
-            }
-
-            SubLevelRelativePose relativePose = snapshot.relativePoses().get(groupedSubLevel.getUniqueId());
-            if (relativePose == null) {
-                continue;
-            }
-
-            Vector3d targetPosition = referencePose.transformPosition(relativePose.positionRelativeToReference(), new Vector3d());
-            Quaterniond targetOrientation = new Quaterniond(referencePose.orientation()).mul(relativePose.orientationRelativeToReference());
-            system.getPipeline().teleport(groupedSubLevel, targetPosition, targetOrientation);
-            if (poseDirty) {
-                system.getPipeline().resetVelocity(groupedSubLevel);
-            }
-
-            Vector3d armWorld = targetPosition.sub(referenceOriginWorld, new Vector3d());
-            Vector3d desiredLinearVelocityWorld = new Vector3d(referenceLinearVelocity)
-                    .add(new Vector3d(referenceAngularVelocity).cross(armWorld, new Vector3d()));
-            applyVelocityLock(system, groupedSubLevel, desiredLinearVelocityWorld, referenceAngularVelocity);
-        }
-    }
-
     private static void stabilizeInterfaceSupportPoseAfterPhysics(SubLevelPhysicsSystem system, ServerSubLevelContainer container,
                                                                   WindTunnelMountBlockEntity mount, ServerSubLevel subLevel,
                                                                   PoseSolution pose) {
@@ -582,41 +482,6 @@ public final class WindTunnelMountService {
                 pose.constraintAnchorWorld(),
                 correctedAngularVelocity);
         applyVelocityLock(system, subLevel, correctedLinearVelocity, correctedAngularVelocity);
-
-        if (mount.getApplicationMode() != WindTunnelMountBlockEntity.ApplicationMode.MULTI_BODY) {
-            return;
-        }
-
-        List<ServerSubLevel> groupedSubLevels = resolveMeasuredSubLevels(container, mount, subLevel);
-        if (groupedSubLevels.size() <= 1) {
-            return;
-        }
-
-        MultiBodyPoseSnapshot snapshot = getOrCreateMultiBodyPoseSnapshot(mount, subLevel, groupedSubLevels);
-        Pose3d correctedReferencePose = new Pose3d(subLevel.logicalPose());
-        correctedReferencePose.position().set(correctedPosition);
-        correctedReferencePose.orientation().set(correctedOrientation);
-        Vector3d referenceOriginWorld = new Vector3d(correctedPosition);
-
-        for (ServerSubLevel groupedSubLevel : groupedSubLevels) {
-            if (groupedSubLevel == subLevel) {
-                continue;
-            }
-
-            SubLevelRelativePose relativePose = snapshot.relativePoses().get(groupedSubLevel.getUniqueId());
-            if (relativePose == null) {
-                continue;
-            }
-
-            Vector3d targetPosition = correctedReferencePose.transformPosition(relativePose.positionRelativeToReference(), new Vector3d());
-            Quaterniond targetOrientation = new Quaterniond(correctedReferencePose.orientation()).mul(relativePose.orientationRelativeToReference());
-            system.getPipeline().teleport(groupedSubLevel, targetPosition, targetOrientation);
-
-            Vector3d armWorld = targetPosition.sub(referenceOriginWorld, new Vector3d());
-            Vector3d desiredLinearVelocityWorld = new Vector3d(correctedLinearVelocity)
-                    .add(new Vector3d(correctedAngularVelocity).cross(armWorld, new Vector3d()));
-            applyVelocityLock(system, groupedSubLevel, desiredLinearVelocityWorld, correctedAngularVelocity);
-        }
     }
 
     private static WindTunnelMountMeasurement computeMeasurement(ServerLevel level, WindTunnelMountBlockEntity mount, ServerSubLevel subLevel, PoseSolution pose) {
@@ -629,13 +494,17 @@ public final class WindTunnelMountService {
             return WindTunnelMountMeasurement.EMPTY;
         }
 
-        List<ServerSubLevel> measuredSubLevels = resolveMeasuredSubLevels(container, mount, subLevel);
+        List<ServerSubLevel> measuredSubLevels = resolveMeasuredSubLevels(subLevel);
         if (measuredSubLevels.isEmpty()) {
             return WindTunnelMountMeasurement.EMPTY;
         }
 
+        // Sable force groups accumulate impulses (force * dt). Convert them back to forces so the
+        // reported lift/drag/moments are in N / N*m regardless of the configured sub-step count.
+        double timeStep = resolveTimeStep(level);
+
         for (ServerSubLevel measuredSubLevel : measuredSubLevels) {
-            accumulateMeasurementForSubLevel(measuredSubLevel, pose, totalForce, totalMoment);
+            accumulateMeasurementForSubLevel(measuredSubLevel, pose, totalForce, totalMoment, timeStep);
         }
 
         Vector3d flowLocal = new Vector3d(pose.flowWorld());
@@ -755,7 +624,9 @@ public final class WindTunnelMountService {
     }
 
     private static Vector3d resolveCenterOfMassLocal(ServerSubLevelContainer container, WindTunnelMountBlockEntity mount, ServerSubLevel referenceSubLevel) {
-        List<ServerSubLevel> referenceSubLevels = resolveMeasuredSubLevels(container, mount, referenceSubLevel);
+        // The stand's balance point is always the whole connected structure's center of mass,
+        // even in single-body mode where only the reference body is measured and driven.
+        List<ServerSubLevel> referenceSubLevels = resolveConnectedSubLevels(referenceSubLevel);
         if (referenceSubLevels.isEmpty()) {
             return new Vector3d(referenceSubLevel.getMassTracker().getCenterOfMass());
         }
@@ -887,59 +758,13 @@ public final class WindTunnelMountService {
     private static WindTunnelMountBlockEntity getMount(ServerLevel level, BlockPos pos, Set<BlockPos> positions) {
         if (!(level.getBlockEntity(pos) instanceof WindTunnelMountBlockEntity mount)) {
             positions.remove(pos);
-            clearMultiBodyPoseSnapshot(level.dimension(), pos);
             return null;
         }
         return mount;
     }
 
-    private static MultiBodyPoseSnapshot getOrCreateMultiBodyPoseSnapshot(WindTunnelMountBlockEntity mount, ServerSubLevel referenceSubLevel,
-                                                                          List<ServerSubLevel> groupedSubLevels) {
-        // Cache against the mount position so one lock session keeps reusing the same relative
-        // rigid-body layout instead of recapturing while the structure is being manipulated.
-        ResourceKey<Level> dimension = referenceSubLevel.getLevel().dimension();
-        BlockPos mountPos = mount.getBlockPos().immutable();
-        Map<BlockPos, MultiBodyPoseSnapshot> snapshots =
-                MULTI_BODY_POSE_SNAPSHOTS.computeIfAbsent(dimension, unused -> new ConcurrentHashMap<>());
-        MultiBodyPoseSnapshot existing = snapshots.get(mountPos);
-        if (existing != null && existing.matches(referenceSubLevel, groupedSubLevels)) {
-            return existing;
-        }
-
-        MultiBodyPoseSnapshot captured = captureMultiBodyPoseSnapshot(referenceSubLevel, groupedSubLevels);
-        snapshots.put(mountPos, captured);
-        return captured;
-    }
-
-    private static MultiBodyPoseSnapshot captureMultiBodyPoseSnapshot(ServerSubLevel referenceSubLevel, List<ServerSubLevel> groupedSubLevels) {
-        // Capture each body's transform relative to the chosen reference body exactly once.
-        Pose3d referencePose = new Pose3d(referenceSubLevel.logicalPose());
-        Quaterniond referenceOrientationInverse = new Quaterniond(referencePose.orientation()).conjugate();
-        LinkedHashMap<UUID, SubLevelRelativePose> relativePoses = new LinkedHashMap<>();
-        LinkedHashSet<UUID> subLevelIds = new LinkedHashSet<>();
-        for (ServerSubLevel groupedSubLevel : groupedSubLevels) {
-            subLevelIds.add(groupedSubLevel.getUniqueId());
-            Vector3d relativePosition = referencePose.transformPositionInverse(groupedSubLevel.logicalPose().position(), new Vector3d());
-            Quaterniond relativeOrientation = new Quaterniond(referenceOrientationInverse).mul(groupedSubLevel.logicalPose().orientation());
-            relativePoses.put(groupedSubLevel.getUniqueId(), new SubLevelRelativePose(relativePosition, relativeOrientation));
-        }
-        return new MultiBodyPoseSnapshot(referenceSubLevel.getUniqueId(), subLevelIds, relativePoses);
-    }
-
-    private static void clearMultiBodyPoseSnapshot(ResourceKey<Level> dimension, BlockPos mountPos) {
-        Map<BlockPos, MultiBodyPoseSnapshot> snapshots = MULTI_BODY_POSE_SNAPSHOTS.get(dimension);
-        if (snapshots == null) {
-            return;
-        }
-
-        snapshots.remove(mountPos);
-        if (snapshots.isEmpty()) {
-            MULTI_BODY_POSE_SNAPSHOTS.remove(dimension, snapshots);
-        }
-    }
-
     private static void accumulateMeasurementForSubLevel(ServerSubLevel measuredSubLevel, PoseSolution referencePose,
-                                                         Vector3d totalForce, Vector3d totalMoment) {
+                                                         Vector3d totalForce, Vector3d totalMoment, double timeStep) {
         Object2ObjectMap<?, QueuedForceGroup> queuedForceGroups = measuredSubLevel.getQueuedForceGroups();
         if (queuedForceGroups == null) {
             return;
@@ -949,31 +774,31 @@ public final class WindTunnelMountService {
         // reference body's local frame before summing.
         Quaterniond worldToReferenceLocal = new Quaterniond(referencePose.orientation()).conjugate();
         Vector3d referenceAnchorWorld = new Vector3d(referencePose.constraintAnchorWorld());
-        accumulateGroupForMeasurement(queuedForceGroups.get(ForceGroups.LIFT.get()), measuredSubLevel, worldToReferenceLocal, referenceAnchorWorld, totalForce, totalMoment);
-        accumulateGroupForMeasurement(queuedForceGroups.get(ForceGroups.DRAG.get()), measuredSubLevel, worldToReferenceLocal, referenceAnchorWorld, totalForce, totalMoment);
+        accumulateGroupForMeasurement(queuedForceGroups.get(ForceGroups.LIFT.get()), measuredSubLevel, worldToReferenceLocal, referenceAnchorWorld, totalForce, totalMoment, timeStep);
+        accumulateGroupForMeasurement(queuedForceGroups.get(ForceGroups.DRAG.get()), measuredSubLevel, worldToReferenceLocal, referenceAnchorWorld, totalForce, totalMoment, timeStep);
         accumulateGravityMomentForMeasurement(measuredSubLevel, worldToReferenceLocal, referenceAnchorWorld, totalMoment);
     }
 
     private static void accumulateGroupForMeasurement(Object rawGroup, ServerSubLevel measuredSubLevel,
                                                       Quaterniond worldToReferenceLocal, Vector3d referenceAnchorWorld,
-                                                      Vector3d totalForce, Vector3d totalMoment) {
+                                                      Vector3d totalForce, Vector3d totalMoment, double timeStep) {
         if (!(rawGroup instanceof QueuedForceGroup group)) {
             return;
         }
 
-        Vector3d localForce = new Vector3d(group.getForceTotal().getLocalForce());
-        Vector3d worldForce = measuredSubLevel.logicalPose().transformNormal(localForce, new Vector3d());
-        worldToReferenceLocal.transform(worldForce);
-        totalForce.add(worldForce);
+        // Sable clears getForceTotal() when the forces are applied each sub-step, so the total is
+        // unavailable here. The retained per-point records are the actual applied impulses.
+        for (QueuedForceGroup.PointForce pointForce : group.getRecordedPointForces()) {
+            Vector3d localForce = new Vector3d(pointForce.force()).div(timeStep);
+            Vector3d worldForce = measuredSubLevel.logicalPose().transformNormal(localForce, new Vector3d());
+            worldToReferenceLocal.transform(worldForce);
+            totalForce.add(worldForce);
 
-        Vector3d localTorque = new Vector3d(group.getForceTotal().getLocalTorque());
-        Vector3d worldTorque = measuredSubLevel.logicalPose().transformNormal(localTorque, new Vector3d());
-        worldToReferenceLocal.transform(worldTorque);
-        totalMoment.add(worldTorque);
-        Vector3d centerWorld = measuredSubLevel.logicalPose().transformPosition(measuredSubLevel.getMassTracker().getCenterOfMass(), new Vector3d());
-        Vector3d arm = centerWorld.sub(referenceAnchorWorld, new Vector3d());
-        worldToReferenceLocal.transform(arm);
-        totalMoment.add(arm.cross(worldForce, new Vector3d()));
+            Vector3d pointWorld = measuredSubLevel.logicalPose().transformPosition(pointForce.point(), new Vector3d());
+            Vector3d arm = pointWorld.sub(referenceAnchorWorld, new Vector3d());
+            worldToReferenceLocal.transform(arm);
+            totalMoment.add(arm.cross(worldForce, new Vector3d()));
+        }
     }
 
     private static void accumulateGravityMomentForMeasurement(ServerSubLevel measuredSubLevel, Quaterniond worldToReferenceLocal,
@@ -1000,7 +825,7 @@ public final class WindTunnelMountService {
             return;
         }
 
-        List<ServerSubLevel> targetSubLevels = resolveMeasuredSubLevels(container, mount, referenceSubLevel);
+        List<ServerSubLevel> targetSubLevels = resolveMeasuredSubLevels(referenceSubLevel);
         if (targetSubLevels.isEmpty()) {
             mount.setDiagramData(WindTunnelMountDiagramData.EMPTY);
             return;
@@ -1136,20 +961,61 @@ public final class WindTunnelMountService {
         return 0.05D / (double) physicsSystem.getConfig().substepsPerTick;
     }
 
-    private static List<ServerSubLevel> resolveMeasuredSubLevels(ServerSubLevelContainer container, WindTunnelMountBlockEntity mount, ServerSubLevel referenceSubLevel) {
-        if (mount.getApplicationMode() == WindTunnelMountBlockEntity.ApplicationMode.MULTI_BODY) {
-            Collection<SubLevel> connected = SubLevelHelper.getConnectedChain(referenceSubLevel);
-            LinkedHashSet<ServerSubLevel> subLevels = new LinkedHashSet<>();
-            for (SubLevel subLevel : connected) {
-                if (subLevel instanceof ServerSubLevel serverSubLevel) {
-                    subLevels.add(serverSubLevel);
-                }
-            }
-            if (!subLevels.isEmpty()) {
-                return new ArrayList<>(subLevels);
+    private static List<ServerSubLevel> resolveConnectedSubLevels(ServerSubLevel referenceSubLevel) {
+        Collection<SubLevel> connected = SubLevelHelper.getConnectedChain(referenceSubLevel);
+        LinkedHashSet<ServerSubLevel> subLevels = new LinkedHashSet<>();
+        for (SubLevel subLevel : connected) {
+            if (subLevel instanceof ServerSubLevel serverSubLevel) {
+                subLevels.add(serverSubLevel);
             }
         }
+        return new ArrayList<>(subLevels);
+    }
+
+    private static List<ServerSubLevel> resolveMeasuredSubLevels(ServerSubLevel referenceSubLevel) {
+        // The measurement set always covers the whole connected structure; locking only drives the
+        // reference body, so no application-mode distinction is needed anymore.
+        List<ServerSubLevel> subLevels = resolveConnectedSubLevels(referenceSubLevel);
+        if (!subLevels.isEmpty()) {
+            return subLevels;
+        }
         return List.of(referenceSubLevel);
+    }
+
+    /**
+     * Keeps per-point force recording enabled on the sublevels measured by the given mount.
+     * Sable resets {@code QueuedForceGroup.getForceTotal()} right after applying forces, so the
+     * measurement must read the retained per-point records instead; those are only populated while
+     * individual tracking is enabled.
+     */
+    private static void updateMeasurementTracking(ServerLevel level, BlockPos mountPos, List<ServerSubLevel> measured) {
+        ResourceKey<Level> dimension = level.dimension();
+        PointForceTracking.Key key = PointForceTracking.key(MEASUREMENT_TRACKING_OWNER, mountPos);
+        ServerSubLevelContainer container = SubLevelContainer.getContainer(level);
+        Map<BlockPos, Set<UUID>> byMount = MEASUREMENT_TRACKING.computeIfAbsent(dimension, unused -> new ConcurrentHashMap<>());
+        Set<UUID> previous = byMount.getOrDefault(mountPos, Set.of());
+        Set<UUID> next = new LinkedHashSet<>();
+        for (ServerSubLevel subLevel : measured) {
+            if (subLevel == null) {
+                continue;
+            }
+            next.add(subLevel.getUniqueId());
+            PointForceTracking.retain(subLevel, key);
+        }
+        for (UUID id : previous) {
+            if (!next.contains(id) && container != null && container.getSubLevel(id) instanceof ServerSubLevel old) {
+                PointForceTracking.release(old, key);
+            }
+        }
+        if (next.isEmpty()) {
+            byMount.remove(mountPos);
+        } else {
+            byMount.put(mountPos, next);
+        }
+    }
+
+    private static void releaseMeasurementTracking(ServerLevel level, BlockPos mountPos) {
+        updateMeasurementTracking(level, mountPos, List.of());
     }
 
     /**
@@ -1260,49 +1126,6 @@ public final class WindTunnelMountService {
         private DiagramCaptureAggregation(WindTunnelMountBlockEntity mount, ServerSubLevel referenceSubLevel,
                                           PoseSolution pose, List<ServerPlayer> players) {
             this(mount, referenceSubLevel, pose, players, new ArrayList<>());
-        }
-    }
-
-    /**
-     * Relative transform of one secondary body with respect to the reference body used by the
-     * mount. These values are replayed while the stand is locked.
-     */
-    private record SubLevelRelativePose(Vector3d positionRelativeToReference, Quaterniond orientationRelativeToReference) {
-        private SubLevelRelativePose {
-            positionRelativeToReference = new Vector3d(positionRelativeToReference);
-            orientationRelativeToReference = new Quaterniond(orientationRelativeToReference);
-        }
-    }
-
-    /**
-     * Frozen multi-body layout captured at the start of a lock session. It is invalidated whenever
-     * the bound structure changes identity or body membership.
-     */
-    private record MultiBodyPoseSnapshot(
-            UUID referenceSubLevelId,
-            Set<UUID> subLevelIds,
-            Map<UUID, SubLevelRelativePose> relativePoses
-    ) {
-        private MultiBodyPoseSnapshot {
-            subLevelIds = Set.copyOf(subLevelIds);
-            relativePoses = Map.copyOf(relativePoses);
-        }
-
-        private boolean matches(ServerSubLevel referenceSubLevel, List<ServerSubLevel> groupedSubLevels) {
-            if (!referenceSubLevel.getUniqueId().equals(referenceSubLevelId)) {
-                return false;
-            }
-
-            if (groupedSubLevels.size() != subLevelIds.size()) {
-                return false;
-            }
-
-            for (ServerSubLevel groupedSubLevel : groupedSubLevels) {
-                if (!subLevelIds.contains(groupedSubLevel.getUniqueId())) {
-                    return false;
-                }
-            }
-            return true;
         }
     }
 }
